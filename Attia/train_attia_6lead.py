@@ -104,3 +104,4 @@ history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=2
                     callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
 
 # ~~~~~~~~~~~~~~~ SAVE MODEL ~~~~~~~~~~~~~~~
+model.save('attia_6lead_weights')
