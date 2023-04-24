@@ -13,10 +13,19 @@ import os
 import zipfile
 from pandas import *
 from sklearn.model_selection import train_test_split
+from attia_6lead_model import BuildModel
 
+# ~~~~~~~~~~~~~~~ CONNECT TO GPU ~~~~~~~~~~~~~~~
+
+os.environ["OMP_NUM_THREADS"] = "0"
+
+if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
+    #Choose GPU 0 as a default if not specified (can set this in Python script that calls this)
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
-dir_path = '/karman_netid/local1'
+dir_path = '~/local1'
 
 count = 0
 # Iterate directory
