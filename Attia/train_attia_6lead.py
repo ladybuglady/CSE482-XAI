@@ -25,8 +25,8 @@ if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
-dir_path = '~/local1'
-
+dir_path = '../../../../../../local1/CSE_XAI/small_data/'
+""" 
 count = 0
 # Iterate directory
 for path in os.listdir(dir_path):
@@ -42,15 +42,36 @@ import json
 import os
 from keras.utils import to_categorical
 
-dir_path = '/content/drive/MyDrive/Colab Notebooks/XAI_DATA/recordings/recording_batch/'
+dir_path = '/content/drive/MyDrive/Colab Notebooks/XAI_DATA/recordings/recording_batch/' """
+
+# importing module
+from pandas import *
+ 
+# reading CSV file
+data = read_csv("Copy of study60_patient_recordings.csv")
+ 
+# converting column data to list
+filename_csv = data['recording_public_id'].tolist()
+y_csv = data['determination'].tolist()
+ 
+# printing list data
+print('Recording ID:', filename_csv[10])
+print('Determination:', y_csv[10])
+
+import json
+import os
+from keras.utils import to_categorical
+
 filenames = []
 
 X = None
 y_labels = []
 y = None
-
+count = 0
 # Iterate directory
 for path in os.listdir(dir_path):
+  print(count)
+  count += 1
   patient_X = np.empty((2, 5000))
 
   jsonFile = open(dir_path + path, 'r')
@@ -95,6 +116,8 @@ X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
 X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
 
 N_Val = y_valid.shape[0]
+N_Train = y_train.shape[0]
+
 print ('Training on : ' + str(N_Train) + ' and validating on : ' +str(N_Val))
 
 n_classes = 2
@@ -105,6 +128,7 @@ class_weight={}
 model = BuildModel(segmentLength=int(5000),
                            padTo=int(5120),n_classes=n_classes,reluLast=True)
 
+modelName ='EF_Model.h5'
 
 earlyStopCallback = EarlyStopping(monitor='val_loss', min_delta=0, patience=9,  mode='auto')
 saveBestCallback = ModelCheckpoint(modelName,monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
