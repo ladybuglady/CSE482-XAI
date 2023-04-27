@@ -18,3 +18,8 @@
 # The attia model reports 83% accuracy, so this should be sufficient to do a good SHAPLY analysis.
 
 # good luck! -Zeynep
+
+
+
+# Note*** There is also another file called "weights_only_checkpoint.h5". Ignore this. It is
+# just to save intermediate progress.
