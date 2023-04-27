@@ -15,6 +15,10 @@ from pandas import *
 from sklearn.model_selection import train_test_split
 from attia_6lead_model import BuildModel
 from pandas import *
+import json
+import os
+from keras.utils import to_categorical
+import argparse
 
 # ~~~~~~~~~~~~~~~ CONNECT TO GPU ~~~~~~~~~~~~~~~
 
@@ -25,84 +29,85 @@ if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
-# ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
-dir_path = '../../../../../../local1/CSE_XAI/small_data/'
-
-
-# reading CSV file
-data = read_csv("Copy of study60_patient_recordings.csv")
- 
-# converting column data to list
-filename_csv = data['recording_public_id'].tolist()
-y_csv = data['determination'].tolist()
- 
-# printing list data
-print('Recording ID:', filename_csv[10])
-print('Determination:', y_csv[10])
-
-import json
-import os
-from keras.utils import to_categorical
-
-filenames = []
-
-X = None
-y_labels = []
-y = None
-count = 0
-# Iterate directory
-for path in os.listdir(dir_path):
-  print(count)
-  count += 1
-  patient_X = np.empty((2, 5000))
-
-  jsonFile = open(dir_path + path, 'r')
-  fileContents = json.load(jsonFile)
-
-  # digging into the dictionaries to get lead data
-  lead_1_samples = fileContents['samples']
-  lead_2_samples = fileContents['extraLeads'][0]['samples']
-
-  # Crop the data to 5000 data points.
-  patient_X[0,:] = lead_1_samples[0:5000]
-  patient_X[1,:] = lead_2_samples[0:5000]
-  
-  if X is None:
-    X = np.expand_dims(patient_X, axis=0)
-  else:
-    X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
-
-  recording_id = fileContents['filename'][:-9]
-  filenames.append(recording_id)
-  diagnostics_file = filename_csv.index(recording_id)
-  filenames.append(diagnostics_file)
-  if y_csv[diagnostics_file] == 'Sinus Rhythm':
-    y_labels.append(0)
-  else:
-    y_labels.append(1)
-  jsonFile.close()
-
-y_labels = np.asarray(y_labels)
-
 # ~~~~~~~~~~~~~~~ DATA PREPROCESS ~~~~~~~~~~~~~~~
+def preprocess(X, y_labels):
+  # Change X dims for model compatibility
+  # expected shape=(None, 5000, 2, 1)
+  X = np.swapaxes(X,1,2)
+  X = np.expand_dims(X, axis=3)
 
-# Change X dims for model compatibility
-# expected shape=(None, 5000, 2, 1)
-X = np.swapaxes(X,1,2)
-X = np.expand_dims(X, axis=3)
+  # Change y dims to one-hot encoding, should be (300, 2)
+  y = to_categorical(y_labels, dtype ="uint8")
 
-# Change y dims to one-hot encoding, should be (300, 2)
-y = to_categorical(y_labels, dtype ="uint8")
+  X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
+  X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
 
-X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
-X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
+  N_Val = y_valid.shape[0]
+  N_Train = y_train.shape[0]
 
-N_Val = y_valid.shape[0]
-N_Train = y_train.shape[0]
+  print ('Training on : ' + str(N_Train) + ' and validating on : ' +str(N_Val))
 
-print ('Training on : ' + str(N_Train) + ' and validating on : ' +str(N_Val))
+  n_classes = 2
+  return X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test
 
-n_classes = 2
+# ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
+
+def fetch_data(size):
+  if size == "full":
+    dir_path =  '../../../../../../local1/CSE_XAI/study60_recordings_json/'
+  else:
+    dir_path = '../../../../../../local1/CSE_XAI/small_data/'
+  # reading CSV file
+  data = read_csv("Copy of study60_patient_recordings.csv")
+  
+  # converting column data to list
+  filename_csv = data['recording_public_id'].tolist()
+  y_csv = data['determination'].tolist()
+  
+  # printing list data
+  print('Recording ID:', filename_csv[10])
+  print('Determination:', y_csv[10])
+
+  filenames = []
+
+  X = None
+  y_labels = []
+  y = None
+  count = 0
+  # Iterate directory
+  for path in os.listdir(dir_path):
+    print(count)
+    count += 1
+    patient_X = np.empty((2, 5000))
+
+    jsonFile = open(dir_path + path, 'r')
+    fileContents = json.load(jsonFile)
+
+    # digging into the dictionaries to get lead data
+    lead_1_samples = fileContents['samples']
+    lead_2_samples = fileContents['extraLeads'][0]['samples']
+
+    # Crop the data to 5000 data points.
+    patient_X[0,:] = lead_1_samples[0:5000]
+    patient_X[1,:] = lead_2_samples[0:5000]
+    
+    if X is None:
+      X = np.expand_dims(patient_X, axis=0)
+    else:
+      X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
+
+    recording_id = fileContents['filename'][:-9]
+    filenames.append(recording_id)
+    diagnostics_file = filename_csv.index(recording_id)
+    filenames.append(diagnostics_file)
+    if y_csv[diagnostics_file] == 'Sinus Rhythm':
+      y_labels.append(0)
+    else:
+      y_labels.append(1)
+    jsonFile.close()
+
+  y_labels = np.asarray(y_labels)
+  return preprocess(X, y_labels)
 
 # ~~~~~~~~~~~~~~~ TRAIN MODEL ~~~~~~~~~~~~~~~
 class_weight={}
@@ -125,8 +130,15 @@ model.save('attia_6lead_weights')
 
 
 def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("-f", "--full", help="If you would like to use the full dataset (not recommended) use --full, otherwise, sample is used.", action="store_true")
+  args = parser.parse_args()
+  full = False
+  if args.full:
+    full = True
     
 
 if __name__ == "__main__":
+
     main()
 
