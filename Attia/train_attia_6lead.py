@@ -19,6 +19,8 @@ import json
 import os
 from keras.utils import to_categorical
 import argparse
+import time
+
 
 # ~~~~~~~~~~~~~~~ CONNECT TO GPU ~~~~~~~~~~~~~~~
 
@@ -48,7 +50,7 @@ def preprocess(X, y_labels):
   print ('Training on : ' + str(N_Train) + ' and validating on : ' +str(N_Val))
 
   n_classes = 2
-  return X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test
+  return X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
 
@@ -76,7 +78,7 @@ def fetch_data(size):
   count = 0
   # Iterate directory
   for path in os.listdir(dir_path):
-    print(count)
+    
     count += 1
     patient_X = np.empty((2, 5000))
 
@@ -105,12 +107,13 @@ def fetch_data(size):
     else:
       y_labels.append(1)
     jsonFile.close()
-
+  
+  print("Count: ", count)
   y_labels = np.asarray(y_labels)
   return preprocess(X, y_labels)
 
 # ~~~~~~~~~~~~~~~ TRAIN MODEL ~~~~~~~~~~~~~~~
-def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, model_name):
+def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name):
   class_weight={}
 
   model = BuildModel(segmentLength=int(5000),
@@ -118,7 +121,7 @@ def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test
 
 
   earlyStopCallback = EarlyStopping(monitor='val_loss', min_delta=0, patience=9,  mode='auto')
-  saveBestCallback = ModelCheckpoint(model_name,monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='auto', period=1)
+  saveBestCallback = ModelCheckpoint(model_name+'weights_only_checkpoint.h5',monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='auto', period=1)
   reduceLR =ReduceLROnPlateau(monitor = 'val_loss',factor = 0.5,patience = 3,verbose=1,min_lr = 0.00001)
   history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=20, batch_size=128, verbose=1, 
                       callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
@@ -132,30 +135,36 @@ def get_test_acc(model, X_test, y_test):
 
   print('Test loss:', score[0]) 
   print('Test accuracy:', score[1])
+  print()
+  print("For reference, Attia model reports 83.3% test accuracy.")
   return score[1]
 
 # ~~~~~~~~~~~~~~~ SAVE MODEL ~~~~~~~~~~~~~~~
 def save_model(model, name):
   model.save(name)
+  print("Saved model to ", name)
 
 
 
 def main():
+  start_time = time.time()
   parser = argparse.ArgumentParser()
   parser.add_argument("-f", "--full", help="If you would like to use the full dataset (not recommended) use --full, otherwise, sample is used.", action="store_true")
   args = parser.parse_args()
   size = 'sample'
   if args.full:
     size = 'full'
-  model_name = 'attia_6lead_'+size+'_dataset_weights'
-  X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test = fetch_data(size)
+  model_name = 'attia_6lead_'+size+'_dataset_'
+  X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes = fetch_data(size)
 
-  model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, model_name)
+  model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name)
 
-  test_acc = get_test_acc(model)
-  name += '_'+str(test_acc)
+  test_acc = get_test_acc(model, X_test, y_test)
+  model_name += '_'+str(test_acc)[2:]
 
-  save_model(model, name)
+  save_model(model, model_name)
+  end_time = time.time()
+  print("Elapsed time: ", str(end_time-start_time))
 
     
 
