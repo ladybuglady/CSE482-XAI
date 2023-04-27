@@ -14,6 +14,7 @@ import zipfile
 from pandas import *
 from sklearn.model_selection import train_test_split
 from attia_6lead_model import BuildModel
+from pandas import *
 
 # ~~~~~~~~~~~~~~~ CONNECT TO GPU ~~~~~~~~~~~~~~~
 
@@ -26,27 +27,8 @@ if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
 dir_path = '../../../../../../local1/CSE_XAI/small_data/'
-""" 
-count = 0
-# Iterate directory
-for path in os.listdir(dir_path):
-    # check if current path is a file
-    if os.path.isfile(os.path.join(dir_path, path)):
-        count += 1
-print('File count:', count)
 
-with zipfile.ZipFile("/content/drive/MyDrive/Colab Notebooks/XAI_DATA/Copy of study60_recordings_json.zip","r") as zip_ref:
-    zip_ref.extractall("/content/drive/MyDrive/Colab Notebooks/XAI_DATA/recordings")
 
-import json
-import os
-from keras.utils import to_categorical
-
-dir_path = '/content/drive/MyDrive/Colab Notebooks/XAI_DATA/recordings/recording_batch/' """
-
-# importing module
-from pandas import *
- 
 # reading CSV file
 data = read_csv("Copy of study60_patient_recordings.csv")
  
@@ -137,4 +119,14 @@ history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=2
                     callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
 
 # ~~~~~~~~~~~~~~~ SAVE MODEL ~~~~~~~~~~~~~~~
+def save_model():
 model.save('attia_6lead_weights')
+
+
+
+def main():
+    
+
+if __name__ == "__main__":
+    main()
+
