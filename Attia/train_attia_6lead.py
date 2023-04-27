@@ -110,22 +110,33 @@ def fetch_data(size):
   return preprocess(X, y_labels)
 
 # ~~~~~~~~~~~~~~~ TRAIN MODEL ~~~~~~~~~~~~~~~
-class_weight={}
+def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, model_name):
+  class_weight={}
 
-model = BuildModel(segmentLength=int(5000),
-                           padTo=int(5120),n_classes=n_classes,reluLast=True)
+  model = BuildModel(segmentLength=int(5000),
+                            padTo=int(5120),n_classes=n_classes,reluLast=True)
 
-modelName ='EF_Model.h5'
 
-earlyStopCallback = EarlyStopping(monitor='val_loss', min_delta=0, patience=9,  mode='auto')
-saveBestCallback = ModelCheckpoint(modelName,monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
-reduceLR =ReduceLROnPlateau(monitor = 'val_loss',factor = 0.5,patience = 3,verbose=1,min_lr = 0.00001)
-history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=20, batch_size=128, verbose=1, 
-                    callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
+  earlyStopCallback = EarlyStopping(monitor='val_loss', min_delta=0, patience=9,  mode='auto')
+  saveBestCallback = ModelCheckpoint(model_name,monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='auto', period=1)
+  reduceLR =ReduceLROnPlateau(monitor = 'val_loss',factor = 0.5,patience = 3,verbose=1,min_lr = 0.00001)
+  history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=20, batch_size=128, verbose=1, 
+                      callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
+
+  
+  return model
+
+# ~~~~~~~~~~~~~~~ CALCULATE TEST ACCURACY ~~~~~~~~~~~~~~~
+def get_test_acc(model, X_test, y_test):
+  score = model.evaluate(X_test, y_test, verbose = 0) 
+
+  print('Test loss:', score[0]) 
+  print('Test accuracy:', score[1])
+  return score[1]
 
 # ~~~~~~~~~~~~~~~ SAVE MODEL ~~~~~~~~~~~~~~~
-def save_model():
-model.save('attia_6lead_weights')
+def save_model(model, name):
+  model.save(name)
 
 
 
@@ -133,12 +144,21 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("-f", "--full", help="If you would like to use the full dataset (not recommended) use --full, otherwise, sample is used.", action="store_true")
   args = parser.parse_args()
-  full = False
+  size = 'sample'
   if args.full:
-    full = True
+    size = 'full'
+  model_name = 'attia_6lead_'+size+'_dataset_weights'
+  X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test = fetch_data(size)
+
+  model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, model_name)
+
+  test_acc = get_test_acc(model)
+  name += '_'+str(test_acc)
+
+  save_model(model, name)
+
     
 
 if __name__ == "__main__":
-
     main()
 
