@@ -7,6 +7,7 @@ import json
 from pandas import *
 import matplotlib.pyplot as plt
 from biosppy.signals import ecg
+import neurokit2 as nk
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
 dir_path = '../../../../../../local1/CSE_XAI/small_data/'
@@ -28,7 +29,7 @@ for path in os.listdir(dir_path):
     patient_X[0,:] = lead_1_samples[0:6000]
     patient_X[1,:] = lead_2_samples[0:6000]
     count += 1
-    if count == 2: # just get 1.
+    if count == 1: # just get 1.
         break
 
 '''
@@ -40,18 +41,29 @@ Output a list of wave component values with timestamp
 features = {"VR": None, "R": []}
 frequency = fileContents["frequency"]
 
-# smooth, straighten, and filter noise from leads
+# smooth, straighten, and filter noise from leads for R-peak detection
 filtered_lead_1 = ecg.ecg(patient_X[0], sampling_rate=frequency, show=False)[1]
 filtered_lead_2 = ecg.ecg(patient_X[1], sampling_rate=frequency, show=False)[1]
 
-# extract r-wave peak timestamps from filtered lead I
-r_peaks_lead_1 = ecg.engzee_segmenter(filtered_lead_1, sampling_rate=frequency)[0]
+# check if lead 1 is inverted
+inverted = nk.ecg_invert(patient_X[0], sampling_rate=frequency, show=False)[1]
 
-# correct r-wave peak timestamps to fit original lead I
-r_peaks_lead_1 = ecg.correct_rpeaks(patient_X[0], r_peaks_lead_1, sampling_rate=frequency)[0]
+# extract r-wave peak timestamps from filtered lead I using Hamilton's algorithm
+r_peaks_lead_1 = ecg.hamilton_segmenter(filtered_lead_1, sampling_rate=frequency)[0]
+
+if inverted:
+    # correct r-wave peak timestamps to fit inverted lead I (the inversion of the originally inverted lead)
+    r_peaks_lead_1 = ecg.correct_rpeaks(np.negative(patient_X[0]), r_peaks_lead_1, sampling_rate=frequency)[0]
+else:
+    # correct r-wave peak timestamps to fit original lead I
+    r_peaks_lead_1 = ecg.correct_rpeaks(patient_X[0], r_peaks_lead_1, sampling_rate=frequency)[0]
 
 features["VR"] = len(r_peaks_lead_1) * (60 / (len(patient_X[0]) / 1000))
 features["R"] = r_peaks_lead_1
+
+print(r_peaks_lead_1)
+print(features["VR"])
+print(inverted)
 
 plt.plot(patient_X[0])
 plt.xlim(0, 6000)
