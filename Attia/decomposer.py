@@ -26,9 +26,9 @@ for path in os.listdir(dir_path):
     lead_1_samples = fileContents['samples']
     lead_2_samples = fileContents['extraLeads'][0]['samples']
 
-    # Crop the data to 6000 data points (6 seconds).
-    patient_X[0,:] = lead_1_samples[0:6000]
-    patient_X[1,:] = lead_2_samples[0:6000]
+    # Crop the data to 5000 data points (5 seconds).
+    patient_X[0,:] = lead_1_samples[0:5000]
+    patient_X[1,:] = lead_2_samples[0:5000]
     count += 1
     if count == 1: # just get 1.
         break
@@ -43,7 +43,7 @@ Output a list of wave component values with timestamp
 def decompose():
     features = {"VR": None, "R": [], "P":[], "T":[]}
     frequency = fileContents["frequency"]
-    duration = fileContents["duration"]
+    duration = len(patient_X[0])
 
     # smooth and straighten lead I for R-peak detection
     filtered_lead_1 = ecg.ecg(patient_X[0], sampling_rate=frequency, show=False)[1]
