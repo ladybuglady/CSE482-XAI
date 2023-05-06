@@ -17,7 +17,7 @@ dir_path = '../../../../../../local1/CSE_XAI/small_data/'
 count = 0
 # Iterate directory
 for path in os.listdir(dir_path):
-    patient_X = np.empty((2, 6000))
+    patient_X = np.empty((2, 5000))
 
     jsonFile = open(dir_path + path, 'r')
     fileContents = json.load(jsonFile)
@@ -40,7 +40,8 @@ Output a list of wave component values with timestamp
 
 '''
 
-def decompose():
+def decompose(patient_X):
+
     features = {"VR": None, "R": [], "P":[], "T":[]}
     frequency = fileContents["frequency"]
     duration = len(patient_X[0])
