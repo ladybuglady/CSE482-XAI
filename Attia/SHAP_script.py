@@ -19,6 +19,15 @@
 
 # good luck! -Zeynep
 
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#USAGE NOTES
+#Run constructor sx = Shap_Explainer()
+#Run loader of explainer by sx.load_explainer
+#To get shap values of an ECG run sx.getShapValues(ECG INPUT)
+#add parameter reshape = True if you have it in the (5000, 2, 1) format
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 from tensorflow import keras
 import shap
 import os
@@ -26,63 +35,88 @@ import numpy as np
 import json
 from pandas import *
 
-data_dir_path = '../../../../../../local1/CSE_XAI/small_data/'
 
-#Load model
-model = keras.models.load_model('./attia_6lead_sample_dataset__8899999856948853/')
-model.load_weights('./attia_6lead_sample_dataset__8899999856948853/variables/variables')
+class Shap_Explainer:
+    def __init__(self):
+        self.explainer = None
 
+    def loadExplainer(self, entryCount = 10):
 
-#Load 100 data entries
-data_entries = 100
-X = None
+        data_dir_path = '../../../../../../local1/CSE_XAI/small_data/'
 
-count = 0
-for path in os.listdir(data_dir_path):
-    patient_X = np.empty((2, 5000))
-    jsonFile = open(data_dir_path + path, 'r')
-    fileContents = json.load(jsonFile)
-    lead_1_samples = fileContents['samples']
-    lead_2_samples = fileContents['extraLeads'][0]['samples']
+        #Load model
+        model = keras.models.load_model('./attia_6lead_sample_dataset__8899999856948853/')
+        model.load_weights('./attia_6lead_sample_dataset__8899999856948853/variables/variables')
 
-    patient_X[0, :] = lead_1_samples[0:5000]
-    patient_X[1, :] = lead_2_samples[0:5000]
+        #Load 10 data entries by default 
+        data_entries = entryCount
+        X = None
 
-    if X is None:
-        X = np.expand_dims(patient_X, axis=0)
-    else:   
-        X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
+        count = 0
+        for path in os.listdir(data_dir_path):
+            patient_X = np.empty((2, 5000))
+            jsonFile = open(data_dir_path + path, 'r')
+            fileContents = json.load(jsonFile)
+            lead_1_samples = fileContents['samples']
+            lead_2_samples = fileContents['extraLeads'][0]['samples']
 
-    count += 1
-    if count == data_entries:
-        break
+            patient_X[0, :] = lead_1_samples[0:5000]
+            patient_X[1, :] = lead_2_samples[0:5000]
 
-X = np.swapaxes(X,1,2)
-X = np.expand_dims(X, axis=3)
+            if X is None:
+                X = np.expand_dims(patient_X, axis=0)
+            else:   
+                X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
 
-print(X)
-print(model.summary())
+            count += 1
+            if count == data_entries:
+                break
 
-#Dataset should be a (sample x feature) shape
-X = X.reshape(-1, 10000)
+        X = np.swapaxes(X,1,2)
+        X = np.expand_dims(X, axis=3)
 
+        print(X)
+        print(model.summary())
 
-#Model prediction, two cases depending on if its a single predicition or an array of predictions
-def f(x):
-    if len(x.shape) > 1:
-        return model.predict(x.reshape(-1, 5000, 2, 1))
-    else:
-        return model.predict(x.reshape(5000, 2, 1))
+        #Dataset should be a (sample x feature) shape
+        X = X.reshape(-1, 10000)
 
 
-#first ten entries form "background" dataset which helps establish perturbations when finding shapley values
-explainer = shap.KernelExplainer(f, X[:10])
+        #Model prediction, two cases depending on if its a single predicition or an array of predictions
+        def f(x):
+            if len(x.shape) > 1:
+                return model.predict(x.reshape(-1, 5000, 2, 1))
+            else:
+                return model.predict(x.reshape(5000, 2, 1))
 
-#Solves for all feature importance (one for every entry I think so like 5000..)
-shap_values = explainer.shap_values(X[50])
 
-#Haven't seen this work yet cus we have 10000 features lol
-shap.summary_plot(explainer.expected_value, shap_values)
+        #first ten entries form "background" dataset which helps establish perturbations when finding shapley values
+        self.explainer = shap.KernelExplainer(f, X)
+        print("LOADED EXPLAINER")
+
+
+    #X should be a (#samples, 10000) sized array (10000 features)
+    #OR set reshape to True if you pass in a (#samples, 5000, 2, 1) array
+    def getShapValues(self, X, reshape = False):
+
+        if reshape:
+            if len(X.shape) > 3:
+                X = X.reshape(-1, 10000)
+            else:
+                X = X.reshape(10000)
+            
+        #Solves for all feature importance (one for every entry I think so like 5000..)
+        shap_values = self.explainer.shap_values(X)
+        return shap_values
+
+
+#Make into module which outputs shapley values in right format tuple of ((5000), (5000)) nparray.
+#Input: Feed me an ECG recording or an array of ECG recordings
+#Ouput: The tuple for either single or array of ECG recordings' shapley values
+
+
+
+#shap.summary_plot(explainer.expected_value, shap_values)
 
 # Note*** There is also another file called "weights_only_checkpoint.h5". Ignore this. It is
 # just to save intermediate progress.
