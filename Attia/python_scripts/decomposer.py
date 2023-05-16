@@ -11,7 +11,7 @@ import neurokit2 as nk
 from scipy import signal
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
-dir_path = '../../../../../../local1/CSE_XAI/small_data/'
+dir_path = '../../../../../../../local1/CSE_XAI/small_data/'
 
 # get 1 file
 count = 0
@@ -139,8 +139,10 @@ def decompose(patient_X):
 
     t_positions = list(zip(t_starts_lead_2, t_ends_lead_2))
 
+    '''
     for i in t_positions:
         plt.axvspan(i[0], i[1], facecolor="r", alpha=0.25)
+    '''
 
     if t_starts_lead_2[0] > p_ends_lead_2[0]:
         tp_positions = list(zip(t_ends_lead_2, p_starts_lead_2[1:]))

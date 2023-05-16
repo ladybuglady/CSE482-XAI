@@ -34,6 +34,7 @@ import os
 import numpy as np
 import json
 from pandas import *
+import random
 
 
 class Shap_Explainer:
@@ -42,7 +43,7 @@ class Shap_Explainer:
 
     def loadExplainer(self, entryCount = 10):
 
-        data_dir_path = '../../../../../../local1/CSE_XAI/small_data/'
+        data_dir_path = '../../../../../../local1/CSE_XAI/control_small/' # changed this to control so that background data is all normal
 
         #Load model
         model = keras.models.load_model('./attia_6lead_sample_dataset__8899999856948853/')
@@ -52,8 +53,12 @@ class Shap_Explainer:
         data_entries = entryCount
         X = None
 
-        count = 0
-        for path in os.listdir(data_dir_path):
+        # For background, it's best if the whole set is for "sinus rythm" (i.e. normal) recordings if our aim
+        # is to see the important features of a afib recording ...
+
+        paths = random.choices(os.listdir(data_dir_path), k=data_entries)
+
+        for path in paths:
             patient_X = np.empty((2, 5000))
             jsonFile = open(data_dir_path + path, 'r')
             fileContents = json.load(jsonFile)
@@ -67,10 +72,6 @@ class Shap_Explainer:
                 X = np.expand_dims(patient_X, axis=0)
             else:   
                 X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
-
-            count += 1
-            if count == data_entries:
-                break
 
         X = np.swapaxes(X,1,2)
         X = np.expand_dims(X, axis=3)
