@@ -57,14 +57,14 @@ def preprocess(X, y_labels):
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
 
-def combine_sets(refs, afib_path, control_path, size=3000,):
+def combine_sets(refs, afib_path, control_path, size=30000):
   np.random.seed(777) # Lucky number 7. 
   
   # Filter out only episodes of sinus rhythm in the afib patients:
   sr_episodes = refs[refs["determination"]=="Sinus Rhythm"]["recording_public_id"]
 
   # Of these, select a random sample:
-  afib_recordings = random.sample(list(sr_episodes), 3000) # has to be hardcoded in for some reason??!?!?!
+  afib_recordings = random.sample(list(sr_episodes), 30000) # has to be hardcoded in for some reason??!?!?!
 
   # Get complete filename:
   afib_recordings = np.array(list(map(lambda s: s+"_raw.json", afib_recordings)))
@@ -79,18 +79,18 @@ def combine_sets(refs, afib_path, control_path, size=3000,):
   print("Recording ID:", afib_ecgs[120])
 
   # Set up y values. These are all afib patients.
-  y_labels_afib = np.ones(3000) # an array of all 1's
+  y_labels_afib = np.ones(30000) # an array of all 1's
 
   # Now, let's get the healthy patients:
-  control_ecgs = random.choices(os.listdir(control_path), k=3000)
-  y_labels_control = np.zeros(3000)
+  control_ecgs = random.choices(os.listdir(control_path), k=30000)
+  y_labels_control = np.zeros(30000)
 
   # Concatenate the 2 arrays:
   ecg_filenames = np.concatenate([afib_ecgs, control_ecgs])
   y_labels = np.concatenate([y_labels_afib, y_labels_control])
 
   # Now randomize and make sure correct labels line up with ecgs:
-  random_indices = np.random.randint(low=0,high=3000*2-1,size = (3000*2,))
+  random_indices = np.random.randint(low=0,high=30000*2-1,size = (30000*2,))
   ecg_filenames = ecg_filenames[random_indices]
   y_labels = y_labels[random_indices]
 
@@ -102,7 +102,7 @@ def combine_sets(refs, afib_path, control_path, size=3000,):
   return ecg_filenames, y_labels
 
 
-def fetch_data(size=3000):
+def fetch_data(size=30000):
 
   # ECG Recordings
   afib_path =  '../../../../../../../local1/CSE_XAI/study60_recordings_json/'
@@ -114,12 +114,12 @@ def fetch_data(size=3000):
   ecg_filenames, Y = combine_sets(refs, afib_path, control_path, size)
 
 
-  X = np.zeros((6000, 2, 5000))
+  X = np.zeros((60000, 2, 5000))
   counter = 0
   for file in ecg_filenames:
     
-    if counter %100 == 0:
-      print("working on file ", counter)
+    if counter %1000 == 0:
+      print("Retrieved files: ", counter)
     patient_X = np.empty((2, 5000))
 
     try:
@@ -182,10 +182,10 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("-f", "--full", help="If you would like to use the full dataset (not recommended) use --full, otherwise, sample is used.", action="store_true")
   args = parser.parse_args()
-  size = 'sample'
+  size = 30000
   if args.full:
     size = 'full'
-  model_name = 'attia_6lead_'+size+'_dataset_'
+  model_name = 'attia_6lead_'+str(size)+'_dataset_'
   X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes = fetch_data(size)
 
   model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name)

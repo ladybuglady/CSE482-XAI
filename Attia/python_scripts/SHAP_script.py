@@ -46,8 +46,9 @@ class Shap_Explainer:
         data_dir_path = '../../../../../../local1/CSE_XAI/control_small/' # changed this to control so that background data is all normal
 
         #Load model
-        model = keras.models.load_model('./attia_6lead_sample_dataset__8899999856948853/')
-        model.load_weights('./attia_6lead_sample_dataset__8899999856948853/variables/variables')
+        
+        model = keras.models.load_model('./attia_6lead_sample_dataset__9726666808128357/')
+        model.load_weights('./attia_6lead_sample_dataset__9726666808128357/variables/variables')
 
         #Load 10 data entries by default 
         data_entries = entryCount
