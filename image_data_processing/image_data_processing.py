@@ -110,8 +110,10 @@ def main():
 
     """make_plot_images(afib_ecgs, "/../../../../../local1/afib_ecgs_as_plots/")
     make_plot_images(control_ecgs, "/../../../../../local1/control_ecgs_as_plots/")"""
-    make_plot_images(afib_ecgs, "afib_ecgs_as_plots_")
-    make_plot_images(control_ecgs, "control_ecgs_as_plots_")
+    make_plot_images(afib_ecgs, "afib_ecgs_as_plots/")
+    make_plot_images(control_ecgs, "control_ecgs_as_plots/")
+    make_spectro_images(afib_ecgs, "afib_ecgs_as_spectro/")
+    make_spectro_images(control_ecgs, "control_ecgs_as_spectro/")
 
 
 if __name__ == "__main__":
