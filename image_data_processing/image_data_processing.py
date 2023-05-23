@@ -79,6 +79,20 @@ def make_plot_images(ecgs, dest):
         plt.savefig(dest+"_"+str(i), dpi=300) #DEST SHOULD BE  DIRECTTORY INSIDE OF LOCAL1
         i+=1
 
+def make_spectro_images(ecgs, dest):
+    i=0
+    for ecg in ecgs:
+        print(ecg.shape)
+        # flatten the ecg
+        ecg = ecg.flatten()
+        print(ecg.shape)
+        
+        fig, ax = plt.subplots() 
+        ax.set_ylim(0,0.5)
+        f, t, Sxx = signal.spectrogram(ecg)
+        pc = ax.pcolormesh(t, f, Sxx, norm=mpl.colors.LogNorm(vmin=10e-10, vmax=100), cmap='inferno')
+        plt.savefig(dest+"_"+str(i),, dpi=300)
+        i+=1
 
 def main():
     refs = pd.read_csv("../Copy of study60_patient_recordings.csv")
