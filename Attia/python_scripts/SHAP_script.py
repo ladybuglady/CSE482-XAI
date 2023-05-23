@@ -47,8 +47,8 @@ class Shap_Explainer:
 
         #Load model
         
-        model = keras.models.load_model('./attia_6lead_sample_dataset__9726666808128357/')
-        model.load_weights('./attia_6lead_sample_dataset__9726666808128357/variables/variables')
+        model = keras.models.load_model('./attia_6lead_sample_dataset__8899999856948853/')
+        model.load_weights('./attia_6lead_sample_dataset__8899999856948853/variables/variables')
 
         #Load 10 data entries by default 
         data_entries = entryCount
