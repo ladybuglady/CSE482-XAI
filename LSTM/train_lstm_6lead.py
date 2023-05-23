@@ -1,22 +1,29 @@
-# lstm model with 6-lead ECG Data
+# Attia et. al. model with 6-lead ECG Data
 # 6 leads are reduced to 2 independent leads
-# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6815557/ 
 
 # ~~~~~~~~~~~~~~~ IMPORTS ~~~~~~~~~~~~~~~
 from collections import Counter
 import numpy as np
+import keras
 from keras.callbacks import ModelCheckpoint,EarlyStopping,ReduceLROnPlateau
+from keras.models import Sequential,Model
+from keras.layers import concatenate,Activation,Dropout,Dense,ZeroPadding2D
+from keras.layers import Input,add,Conv2D, MaxPooling2D,Flatten,BatchNormalization,LSTM
 import os
+import zipfile
 from pandas import *
 from sklearn.model_selection import train_test_split
-from lstm_6lead_model import lstm_model
-
 from pandas import *
 import json
 import os
 from keras.utils import to_categorical
 import argparse
 import time
+import random
+import numpy_indexed as npi
+from numpy.random import default_rng
+
+from lstm_6lead_model import lstm_model
 
 
 # ~~~~~~~~~~~~~~~ CONNECT TO GPU ~~~~~~~~~~~~~~~
@@ -51,35 +58,76 @@ def preprocess(X, y_labels):
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
 
-def fetch_data(size):
-  if size == "full":
-    dir_path =  '../../../../../../local1/CSE_XAI/study60_recordings_json/'
-  else:
-    dir_path = '../../../../../../local1/CSE_XAI/small_data/'
-  # reading CSV file
-  data = read_csv("Copy of study60_patient_recordings.csv")
+def combine_sets(refs, afib_path, control_path, size=30000):
+  np.random.seed(777) # Lucky number 7. 
   
-  # converting column data to list
-  filename_csv = data['recording_public_id'].tolist()
-  y_csv = data['determination'].tolist()
-  
-  # printing list data
-  print('Recording ID:', filename_csv[10])
-  print('Determination:', y_csv[10])
+  # Filter out only episodes of sinus rhythm in the afib patients:
+  sr_episodes = refs[refs["determination"]=="Sinus Rhythm"]["recording_public_id"]
 
-  filenames = []
+  # Of these, select a random sample:
+  afib_recordings = random.sample(list(sr_episodes), 30000) # has to be hardcoded in for some reason??!?!?!
 
-  X = None
-  y_labels = []
-  y = None
-  count = 0
-  # Iterate directory
-  for path in os.listdir(dir_path):
+  # Get complete filename:
+  afib_recordings = np.array(list(map(lambda s: s+"_raw.json", afib_recordings)))
+
+  print(afib_recordings[0:10])
+  # Now, use these IDs to reference the afib ECG dataset
+  afib_ecgs =  np.asarray(os.listdir(afib_path))
+  afib_ecgs = afib_ecgs[npi.indices(afib_ecgs, afib_recordings)]
+
+  # Verify: (These should print the same thing)
+  print("Recording ID:", afib_recordings[120])
+  print("Recording ID:", afib_ecgs[120])
+
+  # Set up y values. These are all afib patients.
+  y_labels_afib = np.ones(30000) # an array of all 1's
+
+  # Now, let's get the healthy patients:
+  control_ecgs = random.choices(os.listdir(control_path), k=30000)
+  y_labels_control = np.zeros(30000)
+
+  # Concatenate the 2 arrays:
+  ecg_filenames = np.concatenate([afib_ecgs, control_ecgs])
+  y_labels = np.concatenate([y_labels_afib, y_labels_control])
+
+  # Now randomize and make sure correct labels line up with ecgs:
+  random_indices = np.random.randint(low=0,high=30000*2-1,size = (30000*2,))
+  ecg_filenames = ecg_filenames[random_indices]
+  y_labels = y_labels[random_indices]
+
+  # Let's verify:
+  print(ecg_filenames[600])
+  print(y_labels[600])
+  print(ecg_filenames[600] in afib_ecgs) # if y-label is 1, then this should be true. if y-label is 0, should be false.
+
+  return ecg_filenames, y_labels
+
+
+def fetch_data(size=30000):
+
+  # ECG Recordings
+  afib_path =  '../../../../../../../local1/CSE_XAI/study60_recordings_json/'
+  control_path = '../../../../../../../local1/CSE_XAI/control_small/'
+
+  # CSV file
+  refs = read_csv("../Copy of study60_patient_recordings.csv")
+
+  ecg_filenames, Y = combine_sets(refs, afib_path, control_path, size)
+
+
+  X = np.zeros((60000, 2, 5000))
+  counter = 0
+  for file in ecg_filenames:
     
-    count += 1
+    if counter %1000 == 0:
+      print("Retrieved files: ", counter)
     patient_X = np.empty((2, 5000))
 
-    jsonFile = open(dir_path + path, 'r')
+    try:
+      jsonFile = open(afib_path + file, 'r')
+    except:
+      jsonFile = open(control_path + file, 'r')
+
     fileContents = json.load(jsonFile)
 
     # digging into the dictionaries to get lead data
@@ -90,24 +138,11 @@ def fetch_data(size):
     patient_X[0,:] = lead_1_samples[0:5000]
     patient_X[1,:] = lead_2_samples[0:5000]
     
-    if X is None:
-      X = np.expand_dims(patient_X, axis=0)
-    else:
-      X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
-
-    recording_id = fileContents['filename'][:-9]
-    filenames.append(recording_id)
-    diagnostics_file = filename_csv.index(recording_id)
-    filenames.append(diagnostics_file)
-    if y_csv[diagnostics_file] == 'Sinus Rhythm':
-      y_labels.append(0)
-    else:
-      y_labels.append(1)
+    X[counter] = patient_X
+    counter += 1
     jsonFile.close()
-  
-  print("Count: ", count)
-  y_labels = np.asarray(y_labels)
-  return preprocess(X, y_labels)
+
+  return preprocess(X, Y)
 
 # ~~~~~~~~~~~~~~~ TRAIN MODEL ~~~~~~~~~~~~~~~
 def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name):
@@ -132,7 +167,7 @@ def get_test_acc(model, X_test, y_test):
   print('Test loss:', score[0]) 
   print('Test accuracy:', score[1])
   print()
-  print("For reference, Gao, Zhang, Lu, Wang model reports 99.2% test accuracy.")
+  print("For reference, Attia model reports 83.3% test accuracy.")
   return score[1]
 
 # ~~~~~~~~~~~~~~~ SAVE MODEL ~~~~~~~~~~~~~~~
@@ -147,10 +182,10 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("-f", "--full", help="If you would like to use the full dataset (not recommended) use --full, otherwise, sample is used.", action="store_true")
   args = parser.parse_args()
-  size = 'sample'
+  size = 30000
   if args.full:
     size = 'full'
-  model_name = 'lstm_6lead_'+size+'_dataset_'
+  model_name = 'lstm_6lead_'+str(size)+'_dataset_'
   X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes = fetch_data(size)
 
   model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name)

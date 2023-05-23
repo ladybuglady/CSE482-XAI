@@ -20,14 +20,14 @@ def lstm_model():
     beta_1=0.9,
     beta_2=0.999,
     epsilon=1e-07,
-    weight_decay=None,
+    #weight_decay=None,
     clipnorm=None,
     clipvalue=None,
     global_clipnorm=None,
-    use_ema=False,
-    ema_momentum=0.99,
-    ema_overwrite_frequency=None,
-    jit_compile=True,
+    #use_ema=False,
+    #ema_momentum=0.99,
+    #ema_overwrite_frequency=None,
+    #jit_compile=True,
     name="Nadam")
   
   focal_loss = tf.keras.losses.BinaryFocalCrossentropy(
