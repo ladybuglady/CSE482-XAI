@@ -41,38 +41,47 @@ class Shap_Explainer:
     def __init__(self):
         self.explainer = None
 
-    def loadExplainer(self, entryCount = 10):
+    def buildExplainer(self, modeltype, entryCount = 10):
 
         data_dir_path = '../../../../../../local1/CSE_XAI/control_small/' # changed this to control so that background data is all normal
 
         #Load model
-        
-        model = keras.models.load_model('./attia_6lead_sample_dataset__9726666808128357/')
-        model.load_weights('./attia_6lead_sample_dataset__9726666808128357/variables/variables')
+        if modeltype == 'Attia':
+            modelfile = './attia_6lead_sample_dataset__9726666808128357/'
+            weightsfile = './attia_6lead_sample_dataset__9726666808128357/variables/variables'
+        elif modeltype == 'LSTM':
+            modelfile = './lstm_6lead_30000_dataset__5203333497047424/'
+            weightsfile = './lstm_6lead_30000e_dataset__5203333497047424/variables/variables'
+        else: 
+            print("This model does not exist.")
+            return
+
+
+        model = keras.models.load_model(modelfile)
+        model.load_weights(weightsfile)
+        print("Building explainer with model file found at: ", modelfile)
 
         #Load 10 data entries by default 
         data_entries = entryCount
-        X = None
+        X = np.zeros((data_entries, 2, 5000))
 
         # For background, it's best if the whole set is for "sinus rythm" (i.e. normal) recordings if our aim
         # is to see the important features of a afib recording ...
 
         paths = random.choices(os.listdir(data_dir_path), k=data_entries)
-
+        counter = 0
         for path in paths:
-            patient_X = np.empty((2, 5000))
             jsonFile = open(data_dir_path + path, 'r')
             fileContents = json.load(jsonFile)
             lead_1_samples = fileContents['samples']
             lead_2_samples = fileContents['extraLeads'][0]['samples']
 
-            patient_X[0, :] = lead_1_samples[0:5000]
-            patient_X[1, :] = lead_2_samples[0:5000]
+            curr_X[0, :] = lead_1_samples[0:5000]
+            curr_X[1, :] = lead_2_samples[0:5000]
 
-            if X is None:
-                X = np.expand_dims(patient_X, axis=0)
-            else:   
-                X = np.concatenate((X, np.expand_dims(patient_X, axis=0)), axis=0)
+            X[counter] = patient_X
+            counter += 1
+            jsonFile.close()
 
         X = np.swapaxes(X,1,2)
         X = np.expand_dims(X, axis=3)
@@ -94,8 +103,6 @@ class Shap_Explainer:
 
         #first ten entries form "background" dataset which helps establish perturbations when finding shapley values
         self.explainer = shap.KernelExplainer(f, X)
-        print("LOADED EXPLAINER")
-
 
     #X should be a (#samples, 10000) sized array (10000 features)
     #OR set reshape to True if you pass in a (#samples, 5000, 2, 1) array
@@ -110,15 +117,3 @@ class Shap_Explainer:
         #Solves for all feature importance (one for every entry I think so like 5000..)
         shap_values = self.explainer.shap_values(X)
         return shap_values
-
-
-#Make into module which outputs shapley values in right format tuple of ((5000), (5000)) nparray.
-#Input: Feed me an ECG recording or an array of ECG recordings
-#Ouput: The tuple for either single or array of ECG recordings' shapley values
-
-
-
-#shap.summary_plot(explainer.expected_value, shap_values)
-
-# Note*** There is also another file called "weights_only_checkpoint.h5". Ignore this. It is
-# just to save intermediate progress.

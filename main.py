@@ -24,14 +24,7 @@ def loadExplainerFromFile(path):
     explainer = joblib.load(filename=path)
 '''
 
-def save_shap_vals(vals, path):
-    # This is to load in later
-    np.save(path, vals, allow_pickle=False, fix_imports=True)
 
-    # This is for us to just be able to see what is in the array
-    np.savetxt(path+".txt", vals)
-
-    print("Saved!")
 
 def plotShap(filename):
     shap_vals = np.load(filename + "_shap_vals_entry.npy")
@@ -96,6 +89,22 @@ def plotShap(filename):
 
     plt.savefig(filename)
 
+def save_shap_vals(vals, path):
+    # This is to load in later
+    np.save(path, vals, allow_pickle=False, fix_imports=True)
+
+    # This is for us to just be able to see what is in the array
+    np.savetxt(path+".txt", vals)
+
+    print("Saved!")
+
+def get_patient_ecg_spectro(path=None):
+    return None
+
+
+def get_patient_ecg_plot(path=None):
+    return None
+
 def get_patient_ecg_array(path=None):
     dir_path = '../../../../../../local1/CSE_XAI/small_data/'
     if path is None:
@@ -117,9 +126,12 @@ def get_patient_ecg_array(path=None):
 def setup_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-ecg', '--ecg', default=None, help='Filepath for ECG readings')
-    parser.add_argument('-model', '--model', default='Attia', help='Diagnostic model to be used')
-    parser.add_argument('-xai', '--xai', default='SHAP', help='XAI model to be used')
-    parser.add_argument('-saveTo', '--saveTo', default=None, help='Desired file name of plot')
+    parser.add_argument('-m', '--model', default='Attia', help='Diagnostic model to be used')
+    parser.add_argument('-x', '--xai', default='SHAP', help='XAI model to be used')
+    parser.add_argument('-s', '--save', default=None, help='Desired file name of plot')
+    parser.add_argument('-l', '--load_explainer', action='store_false' 
+                        help='By default, will assume program is run on GPU server to rebuild a new explainer. If offline, '+
+                        'include \'-l\' tag to load explainer.')
     return parser
 
 def main():
@@ -128,28 +140,35 @@ def main():
     print("Model: ", args.model)
     print("Explainability Method: ", args.xai)
     print("Patient ECG File: ", args.ecg)
-    print("Save Plot To: ", args.saveTo)
+    print("Save Plot To: ", args.save)
+    print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
 
     if args.xai == "SHAP": # compatible with Standard Attia and LSTM
         patient_X = get_patient_ecg_array(args.ecg)
-        shap = Shap_Explainer()
-        shap.loadExplainer(entryCount=10)
+        explainer = Shap_Explainer()
     # Below work with the CNN Attia
     elif args.xai == "Partition-Spectro": # According to the SHAP docs, Partition means "image SHAP"
         patient_X = get_patient_ecg_spectro(args.ecg)
     elif args.xai == "Partition-Plot":
         patient_X = get_patient_ecg_plot(args.ecg)
 
-    print("Explainer loaded!")
+    if args.l:
+        explainer.loadExplainer(args.model)
+        print("Explainer loaded!")
+    else:
+        explainer.buildExplainer(args.model, entryCount=10)
+        print("Explainer built!")
+
+    
     print("Conducting explainability search...")
     vals = shap.getShapValues(patient_X, reshape=True)
     print("Search completed.")
-    save_shap_vals(vals, args.saveTo + "_shap_vals_entry")
+    save_shap_vals(vals, args.save + "_shap_vals_entry10_for_"+args.ecg)
     print("Saved SHAP values.")
     
     print("Plotting...")
-    plotShap(parsedArgs.saveTo)
-    print("Saved explainability plot to ", args.saveTo)
+    plotShap(parsedArgs.save)
+    print("Saved explainability plot to ", args.save)
 
 if __name__ == "__main__":
     main()
