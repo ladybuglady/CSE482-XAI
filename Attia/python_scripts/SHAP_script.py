@@ -116,4 +116,6 @@ class Shap_Explainer:
             
         #Solves for all feature importance (one for every entry I think so like 5000..)
         shap_values = self.explainer.shap_values(X)
-        return shap_values
+        expected_value = self.explainer.expected_value
+        actual_value = model.predict(X.reshape(-1, 5000, 2, 1))
+        return shap_values, expected_value, actual_value
