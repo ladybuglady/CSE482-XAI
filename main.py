@@ -129,7 +129,7 @@ def setup_parser():
     parser.add_argument('-m', '--model', default='Attia', help='Diagnostic model to be used')
     parser.add_argument('-x', '--xai', default='SHAP', help='XAI model to be used')
     parser.add_argument('-s', '--save', default=None, help='Desired file name of plot')
-    parser.add_argument('-l', '--load_explainer', action='store_false' 
+    parser.add_argument('-l', '--load_explainer', action='store_true' ,
                         help='By default, will assume program is run on GPU server to rebuild a new explainer. If offline, '+
                         'include \'-l\' tag to load explainer.')
     return parser
@@ -152,8 +152,8 @@ def main():
     elif args.xai == "Partition-Plot":
         patient_X = get_patient_ecg_plot(args.ecg)
 
-    if args.l:
-        explainer.loadExplainer(args.model)
+    if args.load_explainer:
+        #explainer.loadExplainer(args.model)
         print("Explainer loaded!")
     else:
         explainer.buildExplainer(args.model, entryCount=10)
@@ -161,10 +161,15 @@ def main():
 
     
     print("Conducting explainability search...")
-    vals = shap.getShapValues(patient_X, reshape=True)
+    shap_vals, expected, actual = shap.getShapValues(patient_X, reshape=True)
     print("Search completed.")
-    save_shap_vals(vals, args.save + "_shap_vals_entry10_for_"+args.ecg)
+    save_shap_vals(shap_vals, args.save + "_shap_vals_entry10_for_"+args.ecg)
     print("Saved SHAP values.")
+    print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
+    print("This patient was diagnosed with: ", actual)
+    print("Expected: ", expected)
+    
+    
     
     print("Plotting...")
     plotShap(parsedArgs.save)

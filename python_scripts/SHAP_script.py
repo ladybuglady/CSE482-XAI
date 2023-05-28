@@ -47,11 +47,11 @@ class Shap_Explainer:
 
         #Load model
         if modeltype == 'Attia':
-            modelfile = './attia_6lead_sample_dataset__9726666808128357/'
-            weightsfile = './attia_6lead_sample_dataset__9726666808128357/variables/variables'
+            modelfile = './Attia/attia_6lead_sample_dataset__9726666808128357/'
+            weightsfile = './Attia/attia_6lead_sample_dataset__9726666808128357/variables/variables'
         elif modeltype == 'LSTM':
-            modelfile = './lstm_6lead_30000_dataset__5203333497047424/'
-            weightsfile = './lstm_6lead_30000e_dataset__5203333497047424/variables/variables'
+            modelfile = './LSTM/lstm_6lead_30000_dataset__5203333497047424/'
+            weightsfile = './LSTM/lstm_6lead_30000e_dataset__5203333497047424/variables/variables'
         else: 
             print("This model does not exist.")
             return
@@ -73,13 +73,14 @@ class Shap_Explainer:
         for path in paths:
             jsonFile = open(data_dir_path + path, 'r')
             fileContents = json.load(jsonFile)
+            curr_X = np.empty((2, 5000))
             lead_1_samples = fileContents['samples']
             lead_2_samples = fileContents['extraLeads'][0]['samples']
 
             curr_X[0, :] = lead_1_samples[0:5000]
             curr_X[1, :] = lead_2_samples[0:5000]
 
-            X[counter] = patient_X
+            X[counter] = curr_X
             counter += 1
             jsonFile.close()
 
@@ -99,7 +100,6 @@ class Shap_Explainer:
                 return model.predict(x.reshape(-1, 5000, 2, 1))
             else:
                 return model.predict(x.reshape(5000, 2, 1))
-
 
         #first ten entries form "background" dataset which helps establish perturbations when finding shapley values
         self.explainer = shap.KernelExplainer(f, X)
