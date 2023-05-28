@@ -12,33 +12,7 @@ import joblib
 from python_scripts.decomposer import decompose
 from python_scripts.SHAP_script import Shap_Explainer
 
-def setup_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-ecg', '--ecg', default=None, help='Filepath for ECG readings')
-    parser.add_argument('-diag', '--diag', default='attia', help='Diagnostic model to be used')
-    parser.add_argument('-xai', '--xai', default='shap', help='XAI model to be used')
-    parser.add_argument('-saveTo', '--saveTo', default='plot.png', help='Desired file name of plot')
-    return parser
 
-parsedArgs = setup_parser().parse_args()
-
-def get_patient_data(path=None):
-    dir_path = '../../../../../../local1/CSE_XAI/small_data/'
-    if path is None:
-        path = dir_path + os.listdir(dir_path)[0]
-    
-    patient_X = np.empty((2, 5000))
-    jsonFile = open(path, 'r')
-    fileContents = json.load(jsonFile)
-
-    # digging into the dictionaries to get lead data
-    lead_1_samples = fileContents['samples']
-    lead_2_samples = fileContents['extraLeads'][0]['samples']
-    # Crop the data to 5000 data points (5 seconds).
-    patient_X[0,:] = lead_1_samples[0:5000]
-    patient_X[1,:] = lead_2_samples[0:5000]
-
-    return patient_X
 
 '''
 Sadly, these don't work right now
@@ -122,27 +96,60 @@ def plotShap(filename):
 
     plt.savefig(filename)
 
+def get_patient_ecg_array(path=None):
+    dir_path = '../../../../../../local1/CSE_XAI/small_data/'
+    if path is None:
+        path = dir_path + os.listdir(dir_path)[0]
+    
+    patient_X = np.empty((2, 5000))
+    jsonFile = open(path, 'r')
+    fileContents = json.load(jsonFile)
+
+    # digging into the dictionaries to get lead data
+    lead_1_samples = fileContents['samples']
+    lead_2_samples = fileContents['extraLeads'][0]['samples']
+    # Crop the data to 5000 data points (5 seconds).
+    patient_X[0,:] = lead_1_samples[0:5000]
+    patient_X[1,:] = lead_2_samples[0:5000]
+
+    return patient_X
+
+def setup_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-ecg', '--ecg', default=None, help='Filepath for ECG readings')
+    parser.add_argument('-model', '--model', default='Attia', help='Diagnostic model to be used')
+    parser.add_argument('-xai', '--xai', default='SHAP', help='XAI model to be used')
+    parser.add_argument('-saveTo', '--saveTo', default=None, help='Desired file name of plot')
+    return parser
 
 def main():
-    print(parsedArgs.ecg)
-    patient_X = get_patient_data(parsedArgs.ecg)
+    args = setup_parser().parse_args()
+    print("Running analysis on the following parameters...")
+    print("Model: ", args.model)
+    print("Explainability Method: ", args.xai)
+    print("Patient ECG File: ", args.ecg)
+    print("Save Plot To: ", args.saveTo)
 
-    shap = Shap_Explainer()
-    shap.loadExplainer(entryCount=1)
+    if args.xai == "SHAP": # compatible with Standard Attia and LSTM
+        patient_X = get_patient_ecg_array(args.ecg)
+        shap = Shap_Explainer()
+        shap.loadExplainer(entryCount=10)
+    # Below work with the CNN Attia
+    elif args.xai == "Partition-Spectro": # According to the SHAP docs, Partition means "image SHAP"
+        patient_X = get_patient_ecg_spectro(args.ecg)
+    elif args.xai == "Partition-Plot":
+        patient_X = get_patient_ecg_plot(args.ecg)
 
-    print("XAI for Attia - Prototype 1")
-    print("Input: First ECG file")
-    print(decompose(patient_X))
-    print("Model: Attia")
-    print("Explainer: SHAP")
+    print("Explainer loaded!")
+    print("Conducting explainability search...")
     vals = shap.getShapValues(patient_X, reshape=True)
-    print(len(vals))
-    print(len(vals[0]))
-    print(len(vals[1]))
-    save_shap_vals(vals, parsedArgs.saveTo + "_shap_vals_entry")
-    print(vals)
-
+    print("Search completed.")
+    save_shap_vals(vals, args.saveTo + "_shap_vals_entry")
+    print("Saved SHAP values.")
+    
+    print("Plotting...")
     plotShap(parsedArgs.saveTo)
+    print("Saved explainability plot to ", args.saveTo)
 
 if __name__ == "__main__":
     main()
