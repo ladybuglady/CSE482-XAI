@@ -40,6 +40,7 @@ import random
 class Shap_Explainer:
     def __init__(self):
         self.explainer = None
+        self.model = None
 
     def buildExplainer(self, modeltype, entryCount = 10):
 
@@ -64,6 +65,9 @@ class Shap_Explainer:
         #Load 10 data entries by default 
         data_entries = entryCount
         X = np.zeros((data_entries, 2, 5000))
+        print(model.summary())
+
+        self.model = model
 
         # For background, it's best if the whole set is for "sinus rythm" (i.e. normal) recordings if our aim
         # is to see the important features of a afib recording ...
@@ -87,8 +91,7 @@ class Shap_Explainer:
         X = np.swapaxes(X,1,2)
         X = np.expand_dims(X, axis=3)
 
-        print(X)
-        print(model.summary())
+        
 
         #Dataset should be a (sample x feature) shape
         X = X.reshape(-1, 10000)
@@ -117,5 +120,10 @@ class Shap_Explainer:
         #Solves for all feature importance (one for every entry I think so like 5000..)
         shap_values = self.explainer.shap_values(X)
         expected_value = self.explainer.expected_value
-        actual_value = model.predict(X.reshape(-1, 5000, 2, 1))
-        return shap_values, expected_value, actual_value
+        return shap_values, expected_value
+
+    def getActual(self, x):
+        if len(x.shape) > 1:
+            return self.model.predict(x.reshape(-1, 5000, 2, 1))
+        else:
+            return self.model.predict(x.reshape(5000, 2, 1))

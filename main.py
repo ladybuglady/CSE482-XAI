@@ -136,12 +136,16 @@ def setup_parser():
 
 def main():
     args = setup_parser().parse_args()
+
+    print()
+    print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
     print("Running analysis on the following parameters...")
     print("Model: ", args.model)
     print("Explainability Method: ", args.xai)
     print("Patient ECG File: ", args.ecg)
     print("Save Plot To: ", args.save)
     print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
+    print()
 
     if args.xai == "SHAP": # compatible with Standard Attia and LSTM
         patient_X = get_patient_ecg_array(args.ecg)
@@ -156,23 +160,32 @@ def main():
         #explainer.loadExplainer(args.model)
         print("Explainer loaded!")
     else:
-        explainer.buildExplainer(args.model, entryCount=10)
+        explainer.buildExplainer(args.model, entryCount=1)
         print("Explainer built!")
 
-    
+    print()
     print("Conducting explainability search...")
-    shap_vals, expected, actual = shap.getShapValues(patient_X, reshape=True)
+    print()
+
+    shap_vals, expected = explainer.getShapValues(patient_X, reshape=True)
+    actual = explainer.getActual(patient_X)
+
     print("Search completed.")
-    save_shap_vals(shap_vals, args.save + "_shap_vals_entry10_for_"+args.ecg)
+
+    if args.save is None:
+        save_shap_vals(shap_vals, "debugging_shap_vals_entry10_for_"+ args.ecg)
+    else:
+        save_shap_vals(shap_vals, args.save + "_shap_vals_entry10_for_"+ args.ecg)
+
     print("Saved SHAP values.")
     print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
+    print()
     print("This patient was diagnosed with: ", actual)
     print("Expected: ", expected)
     
     
-    
     print("Plotting...")
-    plotShap(parsedArgs.save)
+    plotShap(args.save)
     print("Saved explainability plot to ", args.save)
 
 if __name__ == "__main__":
