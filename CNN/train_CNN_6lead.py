@@ -13,7 +13,7 @@ import os
 import zipfile
 from pandas import *
 from sklearn.model_selection import train_test_split
-from attia_6lead_model import BuildModel
+from CNN_6lead_model import ResNet18
 from pandas import *
 import json
 import os
@@ -23,6 +23,13 @@ import time
 import random
 import numpy_indexed as npi
 from numpy.random import default_rng
+
+import os, os.path
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset,DataLoader
+from torchvision import transforms,models
+from tqdm import tqdm_notebook as tqdm
 
 
 # ~~~~~~~~~~~~~~~ CONNECT TO GPU ~~~~~~~~~~~~~~~
@@ -146,15 +153,21 @@ def fetch_data(size=30000):
 # ~~~~~~~~~~~~~~~ TRAIN MODEL ~~~~~~~~~~~~~~~
 def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name):
   class_weight={}
+  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+  model = ResNet18().to(device)
 
-  model = BuildModel(segmentLength=int(5000),
-                            padTo=int(5120),n_classes=n_classes,reluLast=True)
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.1, decay=0.5, )
+  #scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-4, max_lr=0.05)
+  criterion = nn.CrossEntropyLoss()
+  batch_size=32
 
+  model.summary()
+  model.compile(loss=criterion,  optimizer=optimizer,  metrics=['accuracy'])
 
   earlyStopCallback = EarlyStopping(monitor='val_loss', min_delta=0, patience=9,  mode='auto')
   saveBestCallback = ModelCheckpoint(model_name+'weights_only_checkpoint.h5',monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='auto', period=1)
   reduceLR =ReduceLROnPlateau(monitor = 'val_loss',factor = 0.5,patience = 3,verbose=1,min_lr = 0.00001)
-  history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=20, batch_size=128, verbose=1, 
+  history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=20, batch_size=batch_size, verbose=1, 
                       callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
 
   
@@ -185,7 +198,7 @@ def main():
   size = 30000
   if args.full:
     size = 'full'
-  model_name = 'attia_6lead_'+str(size)+'_dataset_'
+  model_name = 'CNN_6lead_'+str(size)+'_dataset_'
   X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes = fetch_data(size)
 
   model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name)

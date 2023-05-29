@@ -42,7 +42,11 @@ def preprocess(X, y_labels):
   X = np.expand_dims(X, axis=3)
 
   # Change y dims to one-hot encoding, should be (300, 2)
+  print("Y before categorical:")
+  print(y_labels[0:5])
   y = to_categorical(y_labels, dtype ="uint8")
+  print("Y after categorical:")
+  print(y[0:5])
 
   X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
   X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
@@ -109,7 +113,7 @@ def fetch_data(size=30000):
   control_path = '../../../../../../../local1/CSE_XAI/control_small/'
 
   # CSV file
-  refs = read_csv("../misc/Copy of study60_patient_recordings.csv")
+  refs = read_csv("../Copy of study60_patient_recordings.csv")
 
   ecg_filenames, Y = combine_sets(refs, afib_path, control_path, size)
 

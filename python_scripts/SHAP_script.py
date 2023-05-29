@@ -44,7 +44,8 @@ class Shap_Explainer:
 
     def buildExplainer(self, modeltype, entryCount = 10):
 
-        data_dir_path = '../../../../../../local1/CSE_XAI/control_small/' # changed this to control so that background data is all normal
+        control_data_dir_path = '../../../../../../local1/CSE_XAI/control_small/'
+        afib_data_dir_path = '../../../../../../local1/CSE_XAI/small_data/'
 
         #Load model
         if modeltype == 'Attia':
@@ -72,10 +73,16 @@ class Shap_Explainer:
         # For background, it's best if the whole set is for "sinus rythm" (i.e. normal) recordings if our aim
         # is to see the important features of a afib recording ...
 
-        paths = random.choices(os.listdir(data_dir_path), k=data_entries)
+        control_paths = random.choices(os.listdir(control_data_dir_path), k=int(data_entries/2))
+        afib_paths = random.choices(os.listdir(afib_data_dir_path), k=int(data_entries/2))
+        paths = control_paths + afib_paths
+
         counter = 0
         for path in paths:
-            jsonFile = open(data_dir_path + path, 'r')
+            try:
+                jsonFile = open(control_data_dir_path + path, 'r')
+            except:
+                jsonFile = open(afib_data_dir_path + path, 'r')
             fileContents = json.load(jsonFile)
             curr_X = np.empty((2, 5000))
             lead_1_samples = fileContents['samples']
@@ -111,11 +118,15 @@ class Shap_Explainer:
     #OR set reshape to True if you pass in a (#samples, 5000, 2, 1) array
     def getShapValues(self, X, reshape = False):
 
+        print("Original size of X: ", X.shape)
+
         if reshape:
             if len(X.shape) > 3:
                 X = X.reshape(-1, 10000)
             else:
-                X = X.reshape(10000)
+                X = X.reshape((1, 10000))
+
+        print("Reshaped X: ", X.shape)
             
         #Solves for all feature importance (one for every entry I think so like 5000..)
         shap_values = self.explainer.shap_values(X)

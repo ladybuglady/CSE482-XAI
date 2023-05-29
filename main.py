@@ -94,9 +94,7 @@ def save_shap_vals(vals, path):
     np.save(path, vals, allow_pickle=False, fix_imports=True)
 
     # This is for us to just be able to see what is in the array
-    np.savetxt(path+".txt", vals)
-
-    print("Saved!")
+    #np.savetxt(path+".txt", vals)
 
 def get_patient_ecg_spectro(path=None):
     return None
