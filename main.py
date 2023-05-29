@@ -105,13 +105,19 @@ def get_patient_ecg_spectro(path=None):
 def get_patient_ecg_plot(path=None):
     return None
 
-def get_patient_ecg_array(path=None):
+def get_patient_ecg_array(patient_path="1a01rausczag4unrsujivsxzm_raw.json"):
     dir_path = '../../../../../../local1/CSE_XAI/small_data/'
-    if path is None:
-        path = dir_path + os.listdir(dir_path)[0]
+    path = dir_path+patient_path
     
     patient_X = np.empty((2, 5000))
-    jsonFile = open(path, 'r')
+
+    try:
+        jsonFile = open(path, 'r')
+    except:
+        print(path + " is not a valid ECG recording file. Will use the default file.")
+        path = dir_path+"1a01rausczag4unrsujivsxzm_raw.json"
+        jsonFile = open(path, 'r')
+
     fileContents = json.load(jsonFile)
 
     # digging into the dictionaries to get lead data
@@ -125,7 +131,8 @@ def get_patient_ecg_array(path=None):
 
 def setup_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-ecg', '--ecg', default=None, help='Filepath for ECG readings')
+    # This default recording is a SR for a Afib patient
+    parser.add_argument('-ecg', '--ecg', default="1a01rausczag4unrsujivsxzm_raw.json", help='Filepath for ECG readings')
     parser.add_argument('-m', '--model', default='Attia', help='Diagnostic model to be used')
     parser.add_argument('-x', '--xai', default='SHAP', help='XAI model to be used')
     parser.add_argument('-s', '--save', default=None, help='Desired file name of plot')
@@ -160,7 +167,7 @@ def main():
         #explainer.loadExplainer(args.model)
         print("Explainer loaded!")
     else:
-        explainer.buildExplainer(args.model, entryCount=1)
+        explainer.buildExplainer(args.model, entryCount=10)
         print("Explainer built!")
 
     print()
