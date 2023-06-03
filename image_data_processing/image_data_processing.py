@@ -90,7 +90,7 @@ def make_spectro_images(ecgs, dest):
         fig, ax = plt.subplots() 
         ax.set_ylim(0,0.5)
         f, t, Sxx = signal.spectrogram(ecg)
-        pc = ax.pcolormesh(t, f, Sxx, norm=mpl.colors.LogNorm(vmin=10e-10, vmax=100), cmap='inferno')
+        pc = ax.pcolormesh(t, f, Sxx, norm=mpl.colors.LogNorm(vmin=10e-10, vmax=100), cmap='grayscale')
         plt.savefig(dest+"_"+str(i),, dpi=300)
         i+=1
 

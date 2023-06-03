@@ -24,6 +24,7 @@ import random
 import numpy_indexed as npi
 from numpy.random import default_rng
 
+from PIL import Image, ImageOps
 import os, os.path
 import torch
 import torch.nn as nn
@@ -64,77 +65,65 @@ def preprocess(X, y_labels):
 
 # ~~~~~~~~~~~~~~~ DATA FETCH ~~~~~~~~~~~~~~~
 
-def combine_sets(refs, afib_path, control_path, size=30000):
+def combine_sets(afib_path, control_path, size=30000):
   np.random.seed(777) # Lucky number 7. 
   
-  # Filter out only episodes of sinus rhythm in the afib patients:
-  sr_episodes = refs[refs["determination"]=="Sinus Rhythm"]["recording_public_id"]
-
   # Of these, select a random sample:
-  afib_recordings = random.sample(list(sr_episodes), 30000) # has to be hardcoded in for some reason??!?!?!
-
-  # Get complete filename:
-  afib_recordings = np.array(list(map(lambda s: s+"_raw.json", afib_recordings)))
-
-  print(afib_recordings[0:10])
-  # Now, use these IDs to reference the afib ECG dataset
-  afib_ecgs =  np.asarray(os.listdir(afib_path))
-  afib_ecgs = afib_ecgs[npi.indices(afib_ecgs, afib_recordings)]
-
-  # Verify: (These should print the same thing)
-  print("Recording ID:", afib_recordings[120])
-  print("Recording ID:", afib_ecgs[120])
+  afib_ecgs =random.choices(os.listdir(afib_path), k=int(size)) # has to be hardcoded in for some reason??!?!?!
 
   # Set up y values. These are all afib patients.
-  y_labels_afib = np.ones(30000) # an array of all 1's
+  y_labels_afib = np.ones(300) # an array of all 1's
 
   # Now, let's get the healthy patients:
-  control_ecgs = random.choices(os.listdir(control_path), k=30000)
-  y_labels_control = np.zeros(30000)
+  control_ecgs = random.choices(os.listdir(control_path), k=300)
+  y_labels_control = np.zeros(300)
 
   # Concatenate the 2 arrays:
-  ecg_filenames = np.concatenate([afib_ecgs, control_ecgs])
+  image_filenames = np.concatenate([afib_ecgs, control_ecgs])
   y_labels = np.concatenate([y_labels_afib, y_labels_control])
 
   # Now randomize and make sure correct labels line up with ecgs:
-  random_indices = np.random.randint(low=0,high=30000*2-1,size = (30000*2,))
-  ecg_filenames = ecg_filenames[random_indices]
+  random_indices = np.random.randint(low=0,high=300*2-1,size = (300*2,))
+  image_filenames = image_filenames[random_indices]
   y_labels = y_labels[random_indices]
 
   # Let's verify:
-  print(ecg_filenames[600])
-  print(y_labels[600])
-  print(ecg_filenames[600] in afib_ecgs) # if y-label is 1, then this should be true. if y-label is 0, should be false.
+  print(image_filenames[400])
+  print(y_labels[400])
+  print(image_filenames[400] in afib_ecgs) # if y-label is 1, then this should be true. if y-label is 0, should be false.
 
-  return ecg_filenames, y_labels
-
-
-def fetch_data(size=30000):
-
-  # ECG Recordings
-  afib_path =  '../../../../../../../local1/CSE_XAI/study60_recordings_json/'
-  control_path = '../../../../../../../local1/CSE_XAI/control_small/'
-
-  # CSV file
-  refs = read_csv("../misc/Copy of study60_patient_recordings.csv")
-
-  ecg_filenames, Y = combine_sets(refs, afib_path, control_path, size)
+  return image_filenames, y_labels
 
 
-  X = np.zeros((60000, 2, 5000))
+def fetch_data(datatype, size=30000):
+
+  if datatype == 'spectrogram':
+    afib_path =  '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/control_ecgs_as_spectro/'
+    control_path = '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/afib_ecgs_as_spectro/'
+  else: 
+    afib_path =  '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/control_ecgs_as_plots/'
+    control_path = '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/afib_ecgs_as_plots/'
+
+
+  image_filenames, Y = combine_sets(afib_path, control_path, size)
+
+
+  X = np.zeros((int(size*2), 2, 5000))
   counter = 0
-  for file in ecg_filenames:
+  for file in image_filenames:
     
     if counter %1000 == 0:
       print("Retrieved files: ", counter)
     patient_X = np.empty((2, 5000))
 
     try:
-      jsonFile = open(afib_path + file, 'r')
+      image = Image.open(afib_path + file)
     except:
-      jsonFile = open(control_path + file, 'r')
+      image = Image.open(control_path + file)
 
-    fileContents = json.load(jsonFile)
+    image = ImageOps.grayscale(image)
+    data_ary = np.asarray(image)
+    print(data_ary.shape)
 
     # digging into the dictionaries to get lead data
     lead_1_samples = fileContents['samples']
@@ -194,12 +183,17 @@ def main():
   start_time = time.time()
   parser = argparse.ArgumentParser()
   parser.add_argument("-f", "--full", help="If you would like to use the full dataset (not recommended) use --full, otherwise, sample is used.", action="store_true")
+  parser.add_argument("-s", "--spectrogram", help="Use this tag to use spectrogram images instead of plots.", action="store_true")
   args = parser.parse_args()
-  size = 30000
+  size = 300 #30000
+  datatype = "plot"
   if args.full:
     size = 'full'
+  if args.spectrogram:
+    datatype = "spectrogram"
+
   model_name = 'CNN_6lead_'+str(size)+'_dataset_'
-  X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes = fetch_data(size)
+  X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes = fetch_data(datatype, size)
 
   model = train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name)
 
