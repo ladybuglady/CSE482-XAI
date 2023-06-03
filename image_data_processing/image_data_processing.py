@@ -20,6 +20,8 @@ import numpy_indexed as npi
 from numpy.random import default_rng
 from matplotlib import pyplot as plt
 import seaborn as sns
+from scipy import signal 
+import matplotlib as mpl
 
 
 
@@ -34,7 +36,7 @@ if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
 
 # ~~~~~~~~~~~~~~~ GLOBAL VARIABLES ~~~~~~~~~~~~~~~
 
-size = 2 # should do 300,000
+size = 50000 # should do 300,000
 afib_path =  '../../../../../../../local1/CSE_XAI/study60_recordings_json/'
 control_path = '../../../../../../../local1/CSE_XAI/control_small/'
 
@@ -77,7 +79,9 @@ def make_plot_images(ecgs, dest):
         sns.lineplot(ecg[1], ax=axes[1], color='orange', linewidth = 0.5).set(ylim=[-2,2])
         plt.tight_layout()
         plt.savefig(dest+"_"+str(i), dpi=300) #DEST SHOULD BE  DIRECTTORY INSIDE OF LOCAL1
+        plt.close()
         i+=1
+        print(i)
 
 def make_spectro_images(ecgs, dest):
     i=0
@@ -90,9 +94,11 @@ def make_spectro_images(ecgs, dest):
         fig, ax = plt.subplots() 
         ax.set_ylim(0,0.5)
         f, t, Sxx = signal.spectrogram(ecg)
-        pc = ax.pcolormesh(t, f, Sxx, norm=mpl.colors.LogNorm(vmin=10e-10, vmax=100), cmap='grayscale')
-        plt.savefig(dest+"_"+str(i),, dpi=300)
+        pc = ax.pcolormesh(t, f, Sxx, norm=mpl.colors.LogNorm(vmin=10e-10, vmax=100), cmap='gray')
+        plt.savefig(dest+"_"+str(i), dpi=300)
+        plt.close()
         i+=1
+        print(i)
 
 def main():
     refs = pd.read_csv("../Copy of study60_patient_recordings.csv")
@@ -100,6 +106,8 @@ def main():
 
     afib_recordings = list(sr_episodes)[:size]
     afib_recordings = np.array(list(map(lambda s: s+"_raw.json", afib_recordings)))
+    np.savetxt('afib_recordings.out', afib_recordings, delimiter=',', fmt='%s')
+
     afib_files =  np.asarray(os.listdir(afib_path))
     afib_files = afib_files[npi.indices(afib_files, afib_recordings)]
     afib_ecgs = get_ecgs(afib_files)
@@ -110,8 +118,8 @@ def main():
 
     """make_plot_images(afib_ecgs, "/../../../../../local1/afib_ecgs_as_plots/")
     make_plot_images(control_ecgs, "/../../../../../local1/control_ecgs_as_plots/")"""
-    make_plot_images(afib_ecgs, "afib_ecgs_as_plots/")
-    make_plot_images(control_ecgs, "control_ecgs_as_plots/")
+    #make_plot_images(afib_ecgs, "afib_ecgs_as_plots/")
+    #make_plot_images(control_ecgs, "control_ecgs_as_plots/")
     make_spectro_images(afib_ecgs, "afib_ecgs_as_spectro/")
     make_spectro_images(control_ecgs, "control_ecgs_as_spectro/")
 
