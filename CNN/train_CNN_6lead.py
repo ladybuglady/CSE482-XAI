@@ -13,7 +13,7 @@ import os
 import zipfile
 from pandas import *
 from sklearn.model_selection import train_test_split
-from CNN_6lead_model import ResNet18
+from CNN_6lead_model_pytorch import ResNet18
 from pandas import *
 import json
 import os
@@ -23,6 +23,8 @@ import time
 import random
 import numpy_indexed as npi
 from numpy.random import default_rng
+
+from IPython import display
 
 from PIL import Image, ImageOps
 import os, os.path
@@ -41,6 +43,8 @@ if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
     #Choose GPU 0 as a default if not specified (can set this in Python script that calls this)
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # ~~~~~~~~~~~~~~~ DATA PREPROCESS ~~~~~~~~~~~~~~~
 def preprocess(X, y_labels):
@@ -98,8 +102,8 @@ def combine_sets(afib_path, control_path, size=30000):
 def fetch_data(datatype, size=30000):
 
   if datatype == 'spectrogram':
-    afib_path =  '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/control_ecgs_as_spectro/'
-    control_path = '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/afib_ecgs_as_spectro/'
+    afib_path =  '/local1/CSE_XAI/CSE482-XAI/image_data_processing/control_ecgs_as_spectro/'
+    control_path = '/local1/CSE_XAI/CSE482-XAI/image_data_processing/afib_ecgs_as_spectro/'
   else: 
     afib_path =  '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/control_ecgs_as_plots/'
     control_path = '../../../../../../../local1/CSE_XAI/CSE482-XAI/image_data_processing/afib_ecgs_as_plots/'
@@ -108,13 +112,12 @@ def fetch_data(datatype, size=30000):
   image_filenames, Y = combine_sets(afib_path, control_path, size)
 
 
-  X = np.zeros((int(size*2), 2, 5000))
+  X = np.zeros((int(size*2), 300, 300))
   counter = 0
   for file in image_filenames:
     
     if counter %1000 == 0:
       print("Retrieved files: ", counter)
-    patient_X = np.empty((2, 5000))
 
     try:
       image = Image.open(afib_path + file)
@@ -122,36 +125,38 @@ def fetch_data(datatype, size=30000):
       image = Image.open(control_path + file)
 
     image = ImageOps.grayscale(image)
-    data_ary = np.asarray(image)
-    print(data_ary.shape)
 
-    # digging into the dictionaries to get lead data
-    lead_1_samples = fileContents['samples']
-    lead_2_samples = fileContents['extraLeads'][0]['samples']
+    if datatype == 'spectrogram':
 
-    # Crop the data to 5000 data points.
-    patient_X[0,:] = lead_1_samples[0:5000]
-    patient_X[1,:] = lead_2_samples[0:5000]
+      im = Image.open("/local1/CSE_XAI/CSE482-XAI/image_data_processing/afib_ecgs_as_spectro/"+file)
+      im = ImageOps.grayscale(im)
+      im = im.crop((140, 140, 1800, 1400))
+      im = im.resize((300, 300), Image.ANTIALIAS)
+      im.save("modified.png")
+      
+      patient_X = np.asarray(im)
+
     
     X[counter] = patient_X
     counter += 1
-    jsonFile.close()
 
   return preprocess(X, Y)
 
 # ~~~~~~~~~~~~~~~ TRAIN MODEL ~~~~~~~~~~~~~~~
 def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test, n_classes, model_name):
-  class_weight={}
-  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-  model = ResNet18().to(device)
 
-  optimizer = torch.optim.Adam(model.parameters(), lr=0.1, decay=0.5, )
+
+  class_weight={}
+  
+  model = ResNet18(numChannels=1).to(device)
+
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.1, weight_decay=0.5)
   #scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-4, max_lr=0.05)
-  criterion = nn.CrossEntropyLoss()
+  criterion = nn.BCELoss()
   batch_size=32
 
-  model.summary()
-  model.compile(loss=criterion,  optimizer=optimizer,  metrics=['accuracy'])
+ 
+  """model.compile(loss=criterion,  optimizer=optimizer,  metrics=['accuracy'])
 
   earlyStopCallback = EarlyStopping(monitor='val_loss', min_delta=0, patience=9,  mode='auto')
   saveBestCallback = ModelCheckpoint(model_name+'weights_only_checkpoint.h5',monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='auto', period=1)
@@ -159,11 +164,85 @@ def train_model(X_train, X_rem, y_train, y_rem, X_valid, X_test, y_valid, y_test
   history = model.fit(X_train, y_train,validation_data=(X_valid, y_valid),epochs=20, batch_size=batch_size, verbose=1, 
                       callbacks=[saveBestCallback,earlyStopCallback,reduceLR]) #class_weight=class_weight
 
+  model.summary()"""
+
   
+  for e in range(20): # 20 epochs
+    # set the model in training mode
+    model.float()
+    model.train()
+    
+	  # initialize the total training and validation loss
+    totalTrainLoss = 0
+    totalValLoss = 0
+
+    # initialize the number of correct predictions in the training
+	  # and validation step
+    trainCorrect = 0
+    valCorrect = 0
+
+
+    # loop over the training set
+    i = 0
+    bs = 64 # batchsize
+    while(i < len(X_train)-bs):
+      print(i)
+		  # send the input to the device
+      batch = X_train[i:i+bs]
+      batch = np.swapaxes(batch, 1, 3)
+      x = torch.tensor(batch).to(device)
+     
+      y = torch.tensor(y_train[:,0][i:i+bs]).to(device)
+      
+      pred = model(x.float())
+      # Compute and print loss
+      loss = criterion(pred[:,0].float(), y.float())
+
+      # zero out the gradients, perform the backpropagation step,
+		  # and update the weights
+      optimizer.zero_grad()
+      loss.backward()
+      optimizer.step()
+
+      # add the loss to the total training loss so far and
+		  # calculate the number of correct predictions
+      totalTrainLoss += loss
+      trainCorrect += (pred.argmax(1) == y).type(torch.float).sum().item()
+      
+      i += bs
+
+
+
+
+  print(f'Result: {model.string()}')
+
   return model
 
 # ~~~~~~~~~~~~~~~ CALCULATE TEST ACCURACY ~~~~~~~~~~~~~~~
 def get_test_acc(model, X_test, y_test):
+
+  	# switch off autograd for evaluation
+	with torch.no_grad():
+		# set the model in evaluation mode
+		model.eval()
+		preds = []
+                
+		i = 0
+    bs = 64 # batchsize
+    while(i < len(X_test)-bs):
+                        
+			batch = X_test[i:i+bs]
+      batch = np.swapaxes(batch, 1, 3)
+      x = torch.tensor(batch).to(device)
+     
+      y = torch.tensor(y_test[:,0][i:i+bs]).to(device)
+      
+      pred = model(x.float())
+
+      preds.extend(pred.argmax(axis=1).cpu().numpy())
+
+
+
   score = model.evaluate(X_test, y_test, verbose = 0) 
 
   print('Test loss:', score[0]) 

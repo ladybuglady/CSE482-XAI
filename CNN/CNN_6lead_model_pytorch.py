@@ -1,10 +1,11 @@
-from collections import Counter
 import numpy as np
-import keras
-from keras.callbacks import ModelCheckpoint,EarlyStopping,ReduceLROnPlateau
-from keras.models import Sequential,Model
-from keras.layers import concatenate,Activation,Dropout,Dense,ZeroPadding2D
-from keras.layers import Input,add,Conv2D, MaxPooling2D,Flatten,BatchNormalization,LSTM
+import matplotlib.pyplot as plt
+import os, os.path
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset,DataLoader
+from torchvision import transforms,models
+from tqdm import tqdm_notebook as tqdm
 
 modelName ='EF_Model.h5'
 
@@ -38,11 +39,11 @@ class ResidualBlock(nn.Module):
         return x
     
 class ResNet18(nn.Module):
-    def __init__(self):
+    def __init__(self, numChannels):
         super(ResNet18,self).__init__()
         
         self.block1 = nn.Sequential(
-            nn.Conv2d(1,64,kernel_size=2,stride=2,padding=3,bias=False),
+            nn.Conv2d(int(numChannels),64,kernel_size=2,stride=2,padding=3,bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(True)
         )
@@ -69,7 +70,7 @@ class ResNet18(nn.Module):
         
         self.avgpool = nn.AvgPool2d(2)
 
-        self.fc3 = nn.Linear(512,7)
+        self.fc3 = nn.Linear(12800,7) # (512, 7)
         self.fc4 = nn.Linear(7, 1)
 
         self.m = nn.Sigmoid()
@@ -87,24 +88,3 @@ class ResNet18(nn.Module):
         out = self.m(x)
         return out
     
-def Block1(i):
-    # # filters, kernel size, 
-    Conv2D(nof, (width,1), padding='same', kernel_initializer="glorot_normal")(i)
-    
-    # in channels, out channels, 
-    i = nn.Conv2d(1,64,kernel_size=2,stride=2,padding=3,bias=False),
-
-def BuildModel(segmentLength=512,padTo=512,n_classes=2,reluLast=True):
-
-    # Build a convolutional neural network from predefiend building box (Conv-BN-relu-pool)
-
-    ecgInp = Input(shape=(segmentLength,2,1))
-
-    if padTo>0 and padTo>segmentLength:
-        i = ZeroPadding2D(padding=(int((padTo-segmentLength)/2), 0))(ecgInp)
-    else:        
-        i=ecgInp
-
-    inputs = ecgInp
-
-    i = 
