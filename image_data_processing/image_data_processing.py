@@ -36,7 +36,7 @@ if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
 
 # ~~~~~~~~~~~~~~~ GLOBAL VARIABLES ~~~~~~~~~~~~~~~
 
-size = 50000 # should do 300,000
+size = 1 # should do 300,000
 afib_path =  '../../../../../../../local1/CSE_XAI/study60_recordings_json/'
 control_path = '../../../../../../../local1/CSE_XAI/control_small/'
 
@@ -120,8 +120,8 @@ def main():
     make_plot_images(control_ecgs, "/../../../../../local1/control_ecgs_as_plots/")"""
     #make_plot_images(afib_ecgs, "afib_ecgs_as_plots/")
     #make_plot_images(control_ecgs, "control_ecgs_as_plots/")
-    make_spectro_images(afib_ecgs, "afib_ecgs_as_spectro/")
-    make_spectro_images(control_ecgs, "control_ecgs_as_spectro/")
+    make_spectro_images(afib_ecgs)
+    make_spectro_images(control_ecgs)
 
 
 if __name__ == "__main__":
