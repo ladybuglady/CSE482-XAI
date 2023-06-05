@@ -98,7 +98,10 @@ def decompose(patient_X):
         if v == 1:
             p_ends_lead_2.append(i)
 
-    p_positions = list(zip(p_starts_lead_2, p_ends_lead_2))
+    if (p_starts_lead_2[0] > p_ends_lead_2[0]) and ((p_starts_lead_2[len(p_starts_lead_2) // 2] > p_ends_lead_2[len(p_starts_lead_2) // 2]) or (p_starts_lead_2[-2] > p_ends_lead_2[-2])):
+        p_positions = list(zip(p_starts_lead_2, p_ends_lead_2[1:]))
+    else:
+        p_positions = list(zip(p_starts_lead_2, p_ends_lead_2))
 
     q_starts_lead_2 = []
     s_ends_lead_2 = []
@@ -111,15 +114,38 @@ def decompose(patient_X):
         if v == 1:
             s_ends_lead_2.append(i)
 
-    if q_starts_lead_2[0] < p_ends_lead_2[0]:
-        pr_positions = list(zip(p_ends_lead_2, q_starts_lead_2[1:]))
-    else:
-        pr_positions = list(zip(p_ends_lead_2, q_starts_lead_2))
+    try:
+        # Fix overlapping for PR and QRS
+        for i in range(2, len(q_starts_lead_2)):
+            if q_starts_lead_2[i] - q_starts_lead_2[i - 1] > (q_starts_lead_2[i - 1] - q_starts_lead_2[i - 2]) * 1.5:
+                if (q_starts_lead_2[0] < s_ends_lead_2[0]) and ((q_starts_lead_2[len(q_starts_lead_2) // 2] < s_ends_lead_2[len(q_starts_lead_2) // 2]) or (q_starts_lead_2[-2] < s_ends_lead_2[-2])):
+                    q_starts_lead_2.insert(i, s_ends_lead_2[i - 1] - (s_ends_lead_2[i - 1] - q_starts_lead_2[i - 1]))
+                else:
+                    q_starts_lead_2.insert(i, s_ends_lead_2[i + 1] - (s_ends_lead_2[i] - q_starts_lead_2[i - 1]))
 
-    if q_starts_lead_2[0] > s_ends_lead_2[0]:
-        qrs_positions = list(zip(q_starts_lead_2, s_ends_lead_2[1:]))
-    else:
-        qrs_positions = list(zip(q_starts_lead_2, s_ends_lead_2))
+        for i in range(2, len(s_ends_lead_2)):
+            if s_ends_lead_2[i] - s_ends_lead_2[i - 1] > (s_ends_lead_2[i - 1] - s_ends_lead_2[i - 2]) * 1.5:
+                if (q_starts_lead_2[0] < s_ends_lead_2[0]) and ((q_starts_lead_2[len(q_starts_lead_2) // 2] < s_ends_lead_2[len(q_starts_lead_2) // 2]) or (q_starts_lead_2[-2] < s_ends_lead_2[-2])):
+                    s_ends_lead_2.insert(i, q_starts_lead_2[i] + (s_ends_lead_2[i - 1] - q_starts_lead_2[i - 1]))
+                else:
+                    s_ends_lead_2.insert(i, q_starts_lead_2[i - 1] + (s_ends_lead_2[i - 1] - q_starts_lead_2[i - 2]))
+
+        for i in range(len(q_starts_lead_2)):
+            if (q_starts_lead_2[0] < p_ends_lead_2[0]) and ((q_starts_lead_2[len(q_starts_lead_2) // 2] < p_ends_lead_2[len(q_starts_lead_2) // 2]) or (q_starts_lead_2[-2] < p_ends_lead_2[-2])):
+                if q_starts_lead_2[i + 1] < p_ends_lead_2[i]:
+                    q_starts_lead_2[i + 1] = p_ends_lead_2[i] 
+            else:
+                if q_starts_lead_2[i] < p_ends_lead_2[i]:
+                    q_starts_lead_2[i] = p_ends_lead_2[i]
+
+        if (q_starts_lead_2[0] < p_ends_lead_2[0]) and ((q_starts_lead_2[len(q_starts_lead_2) // 2] < p_ends_lead_2[len(q_starts_lead_2) // 2]) or (q_starts_lead_2[-2] < p_ends_lead_2[-2])):
+            pr_positions = list(zip(p_ends_lead_2, q_starts_lead_2[1:]))
+        else:
+            pr_positions = list(zip(p_ends_lead_2, q_starts_lead_2))
+    except:
+        print("Bad ECG :(")
+        pr_positions = []
+        st_positions = []
 
     t_starts_lead_2 = []
     t_ends_lead_2 = []
@@ -132,19 +158,40 @@ def decompose(patient_X):
         if v == 1:
             t_ends_lead_2.append(i)
 
-    if t_starts_lead_2[0] < s_ends_lead_2[0]:
-        st_positions = list(zip(s_ends_lead_2, t_starts_lead_2[1:]))
+    try:
+        qrs_positions = []
+        for i in range(len(q_starts_lead_2)):
+            if (q_starts_lead_2[0] > s_ends_lead_2[0]) and ((q_starts_lead_2[len(q_starts_lead_2) // 2] > s_ends_lead_2[len(q_starts_lead_2) // 2]) or (q_starts_lead_2[-2] > s_ends_lead_2[-2])):
+                qrs_positions.append([q_starts_lead_2[i], min(s_ends_lead_2[i + 1], t_starts_lead_2[i + 1])])
+            else:
+                qrs_positions.append([q_starts_lead_2[i], min(s_ends_lead_2[i], t_starts_lead_2[i])])
+
+        if (t_starts_lead_2[0] < s_ends_lead_2[0]) and ((t_starts_lead_2[len(t_starts_lead_2) // 2] < s_ends_lead_2[len(t_starts_lead_2) // 2]) or (t_starts_lead_2[-2] < s_ends_lead_2[-2])):
+            st_positions = list(zip(s_ends_lead_2, t_starts_lead_2[1:]))
+        else:
+            st_positions = list(zip(s_ends_lead_2, t_starts_lead_2))
+
+        # Fix overlapping for ST
+        for i in range(len(s_ends_lead_2)):
+            if (t_starts_lead_2[0] < s_ends_lead_2[0]) and ((t_starts_lead_2[len(t_starts_lead_2) // 2] < s_ends_lead_2[len(t_starts_lead_2) // 2]) or (t_starts_lead_2[-2] < s_ends_lead_2[-2])):
+                if t_starts_lead_2[i] < s_ends_lead_2[i + 1]:
+                    t_starts_lead_2[i] = s_ends_lead_2[i + 1] 
+            else:
+                if t_starts_lead_2[i] < s_ends_lead_2[i]:
+                    t_starts_lead_2[i] = s_ends_lead_2[i]
+    except:
+        print("Bad ECG :(")
+        if (p_ends_lead_2[0] > t_starts_lead_2[0]) and ((p_ends_lead_2[len(p_ends_lead_2) // 2] > t_starts_lead_2[len(p_ends_lead_2) // 2]) or (p_ends_lead_2[-2] > t_starts_lead_2[-2])):
+            qrs_positions = list(zip(p_ends_lead_2, t_starts_lead_2[1:]))
+        else:
+            qrs_positions = list(zip(p_ends_lead_2, t_starts_lead_2))
+
+    if (t_starts_lead_2[0] > t_ends_lead_2[0]) and ((t_starts_lead_2[len(t_starts_lead_2) // 2] > t_ends_lead_2[len(t_starts_lead_2) // 2]) or (t_starts_lead_2[-2] > t_ends_lead_2[-2])):
+        t_positions = list(zip(t_starts_lead_2, t_ends_lead_2[1:]))
     else:
-        st_positions = list(zip(s_ends_lead_2, t_starts_lead_2))
+        t_positions = list(zip(t_starts_lead_2, t_ends_lead_2))
 
-    t_positions = list(zip(t_starts_lead_2, t_ends_lead_2))
-
-    '''
-    for i in t_positions:
-        plt.axvspan(i[0], i[1], facecolor="r", alpha=0.25)
-    '''
-
-    if t_starts_lead_2[0] > p_ends_lead_2[0]:
+    if (t_ends_lead_2[0] > p_starts_lead_2[0]) and ((t_ends_lead_2[len(t_ends_lead_2) // 2] > p_starts_lead_2[len(t_ends_lead_2) // 2]) or (t_ends_lead_2[-2] > p_starts_lead_2[-2])):
         tp_positions = list(zip(t_ends_lead_2, p_starts_lead_2[1:]))
     else:
         tp_positions = list(zip(t_ends_lead_2, p_starts_lead_2))
