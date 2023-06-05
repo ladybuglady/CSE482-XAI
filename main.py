@@ -12,8 +12,6 @@ import joblib
 from python_scripts.decomposer import decompose
 from python_scripts.SHAP_script import Shap_Explainer
 
-
-
 '''
 Sadly, these don't work right now
 
@@ -24,21 +22,37 @@ def loadExplainerFromFile(path):
     explainer = joblib.load(filename=path)
 '''
 
+# builds ArgumentParser with specific arguments for our application
+def setup_parser():
+    parser = argparse.ArgumentParser()
+    # This default recording is a SR for a Afib patient
+    parser.add_argument('-ecg', '--ecg', default="1a01rausczag4unrsujivsxzm_raw.json", help='Filepath for ECG readings')
+    parser.add_argument('-m', '--model', default='Attia', help='Diagnostic model to be used')
+    parser.add_argument('-x', '--xai', default='SHAP', help='XAI model to be used')
+    parser.add_argument('-s', '--save', default='patient', help='Desired file name of plot')
+    parser.add_argument('-l', '--load_explainer', action='store_true' ,
+                        help='By default, will assume program is run on GPU server to rebuild a new explainer. If offline, '+
+                        'include \'-l\' tag to load explainer.')
+    return parser
 
+# generates our argument parser to be used
+#   throughout the program
+args = setup_parser().parse_args()
 
+# build a visual plot of all the SHAP values stored in filename
 def plotShap(filename):
-    shap_vals = np.load(filename + "_shap_vals_entry.npy")
+    shap_vals = np.load(filename + ".npy")
     shap_vals = shap_vals[0] # IM JUST GONNA ASSUME THAT BOTH THE LEADS ARE JUST REPEATED IN EACH ROW ):
     shap_vals = shap_vals.reshape((2, 5000))
     print(shap_vals.shape)
     shaps_df = pd.DataFrame(shap_vals, index=['Lead1', 'Lead2'])
 
-    waves = decompose(get_patient_data())
+    patient_ecg_array = get_patient_ecg_array(args.ecg)
+    waves = decompose(patient_ecg_array)
 
-    print("decomp complete")
     fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(12,4))
-    sns.lineplot(get_patient_data()[0], ax=axes[0], linewidth = 0.5).set(ylim=[-2,2])
-    sns.lineplot(get_patient_data()[1], ax=axes[1], color='orange', linewidth = 0.5).set(ylim=[-2,2])
+    sns.lineplot(patient_ecg_array[0], ax=axes[0], linewidth = 0.5).set(ylim=[-2,2])
+    sns.lineplot(patient_ecg_array[1], ax=axes[1], color='orange', linewidth = 0.5).set(ylim=[-2,2])
     
     # Plot
 
@@ -56,8 +70,8 @@ def plotShap(filename):
     ax_l1 = axes[0].twinx()
     ax_l2 = axes[1].twinx()
 
-    sns.lineplot(get_patient_data()[0], ax=ax_l1, color='orange', linewidth = 0.5).set(ylim=[-2,2])
-    sns.lineplot(get_patient_data()[1], ax=ax_l2, color='orange', linewidth = 0.5).set(ylim=[-2,2])
+    sns.lineplot(patient_ecg_array[0], ax=ax_l1, color='orange', linewidth = 0.5).set(ylim=[-2,2])
+    sns.lineplot(patient_ecg_array[1], ax=ax_l2, color='orange', linewidth = 0.5).set(ylim=[-2,2])
 
 
     axes[0].grid(False)
@@ -72,8 +86,6 @@ def plotShap(filename):
     ax_l1.grid(False)
     ax_l2.grid(False)
 
-    print("good")
-
     sns.scatterplot(x=waves['R1'], y=np.zeros(len(waves['R1'])), ax=ax_l1, color='red', label='R-waves')
     sns.scatterplot(x=waves['R2'], y=np.zeros(len(waves['R2'])), ax=ax_l2, color='red')
 
@@ -87,8 +99,9 @@ def plotShap(filename):
         sns.lineplot(x=wave, y=np.zeros(len(wave)), ax=ax_l1,  c=sns.xkcd_rgb['bright cyan'])
         sns.lineplot(x=wave, y=np.zeros(len(wave)), ax=ax_l2,  c=sns.xkcd_rgb['bright cyan'])
 
-    plt.savefig(filename)
+    plt.savefig(filename + ".png")
 
+# save the SHAP values generated from vals, saved to path
 def save_shap_vals(vals, path):
     # This is to load in later
     np.save(path, vals, allow_pickle=False, fix_imports=True)
@@ -102,6 +115,7 @@ def get_patient_ecg_spectro(path=None):
 
 def get_patient_ecg_plot(path=None):
     return None
+
 
 def get_patient_ecg_array(patient_path="1a01rausczag4unrsujivsxzm_raw.json"):
     dir_path = '../../../../../../local1/CSE_XAI/small_data/'
@@ -127,21 +141,7 @@ def get_patient_ecg_array(patient_path="1a01rausczag4unrsujivsxzm_raw.json"):
 
     return patient_X
 
-def setup_parser():
-    parser = argparse.ArgumentParser()
-    # This default recording is a SR for a Afib patient
-    parser.add_argument('-ecg', '--ecg', default="1a01rausczag4unrsujivsxzm_raw.json", help='Filepath for ECG readings')
-    parser.add_argument('-m', '--model', default='Attia', help='Diagnostic model to be used')
-    parser.add_argument('-x', '--xai', default='SHAP', help='XAI model to be used')
-    parser.add_argument('-s', '--save', default=None, help='Desired file name of plot')
-    parser.add_argument('-l', '--load_explainer', action='store_true' ,
-                        help='By default, will assume program is run on GPU server to rebuild a new explainer. If offline, '+
-                        'include \'-l\' tag to load explainer.')
-    return parser
-
 def main():
-    args = setup_parser().parse_args()
-
     print()
     print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
     print("Running analysis on the following parameters...")
@@ -177,21 +177,18 @@ def main():
 
     print("Search completed.")
 
-    if args.save is None:
-        save_shap_vals(shap_vals, "debugging_shap_vals_entry10_for_"+ args.ecg)
-    else:
-        save_shap_vals(shap_vals, args.save + "_shap_vals_entry10_for_"+ args.ecg)
+    filename = args.save + "_shap_vals_entry10_for_" + args.ecg
+    save_shap_vals(shap_vals, filename)
 
-    print("Saved SHAP values.")
+    print("Saved SHAP values to: " + filename + ".npy")
     print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
     print()
     print("This patient was diagnosed with: ", actual)
     print("Expected: ", expected)
     
-    
     print("Plotting...")
-    plotShap(args.save)
-    print("Saved explainability plot to ", args.save)
+    plotShap(filename)
+    print("Saved explainability plot to ", args.save + ".png")
 
 if __name__ == "__main__":
     main()
