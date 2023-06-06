@@ -11,16 +11,8 @@ import json
 import joblib
 from python_scripts.decomposer import decompose
 from python_scripts.SHAP_script import Shap_Explainer
+from python_scripts.translator import translate
 
-'''
-Sadly, these don't work right now
-
-def saveExplainerToFile(explainer, path="first_recording_shap_vals.bz2"):
-    joblib.dump(explainer, filename=path, compress=('bz2', 9))
-
-def loadExplainerFromFile(path):
-    explainer = joblib.load(filename=path)
-'''
 
 # builds ArgumentParser with specific arguments for our application
 def setup_parser():
@@ -33,6 +25,8 @@ def setup_parser():
     parser.add_argument('-l', '--load_explainer', action='store_true' ,
                         help='By default, will assume program is run on GPU server to rebuild a new explainer. If offline, '+
                         'include \'-l\' tag to load explainer.')
+    parser.add_argument('-v', '--shap_vals',  default="patient_shap_vals_entry10_for_1a01rausczag4unrsujivsxzm_raw.json",
+                        help='Will upload previously constructed shap values if given a file.')
     return parser
 
 # generates our argument parser to be used
@@ -40,17 +34,18 @@ def setup_parser():
 args = setup_parser().parse_args()
 
 # build a visual plot of all the SHAP values stored in filename
-def plotShap(filename):
+def plotShap(filename, save):
+    fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(17,8))
     shap_vals = np.load(filename + ".npy")
     shap_vals = shap_vals[0] # IM JUST GONNA ASSUME THAT BOTH THE LEADS ARE JUST REPEATED IN EACH ROW ):
     shap_vals = shap_vals.reshape((2, 5000))
-    print(shap_vals.shape)
+    #print(shap_vals.shape)
     shaps_df = pd.DataFrame(shap_vals, index=['Lead1', 'Lead2'])
 
     patient_ecg_array = get_patient_ecg_array(args.ecg)
     waves = decompose(patient_ecg_array)
 
-    fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(12,4))
+    fig, axes = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(17,8))
     sns.lineplot(patient_ecg_array[0], ax=axes[0], linewidth = 0.5).set(ylim=[-2,2])
     sns.lineplot(patient_ecg_array[1], ax=axes[1], color='orange', linewidth = 0.5).set(ylim=[-2,2])
     
@@ -99,7 +94,8 @@ def plotShap(filename):
         sns.lineplot(x=wave, y=np.zeros(len(wave)), ax=ax_l1,  c=sns.xkcd_rgb['bright cyan'])
         sns.lineplot(x=wave, y=np.zeros(len(wave)), ax=ax_l2,  c=sns.xkcd_rgb['bright cyan'])
 
-    plt.savefig(filename + ".png")
+    
+    plt.savefig(save + ".png",pad_inches=0.9, bbox_inches='tight')
 
 # save the SHAP values generated from vals, saved to path
 def save_shap_vals(vals, path):
@@ -152,43 +148,77 @@ def main():
     print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
     print()
 
-    if args.xai == "SHAP": # compatible with Standard Attia and LSTM
-        patient_X = get_patient_ecg_array(args.ecg)
-        explainer = Shap_Explainer()
-    # Below work with the CNN Attia
-    elif args.xai == "Partition-Spectro": # According to the SHAP docs, Partition means "image SHAP"
-        patient_X = get_patient_ecg_spectro(args.ecg)
-    elif args.xai == "Partition-Plot":
-        patient_X = get_patient_ecg_plot(args.ecg)
+    if args.shap_vals is None:
+        if args.xai == "SHAP": # compatible with Standard Attia and LSTM
+            patient_X = get_patient_ecg_array(args.ecg)
+            explainer = Shap_Explainer()
+        # Below work with the CNN Attia
+        elif args.xai == "Partition-Spectro": # According to the SHAP docs, Partition means "image SHAP"
+            patient_X = get_patient_ecg_spectro(args.ecg)
+        elif args.xai == "Partition-Plot":
+            patient_X = get_patient_ecg_plot(args.ecg)
 
-    if args.load_explainer:
-        #explainer.loadExplainer(args.model)
-        print("Explainer loaded!")
+        if args.load_explainer:
+            #explainer.loadExplainer(args.model)
+            print("Explainer loaded!")
+        else:
+            explainer.buildExplainer(args.model, entryCount=10)
+            print("Explainer built!")
+
+        print()
+        print("Conducting explainability search...")
+        print()
+
+        shap_vals, expected = explainer.getShapValues(patient_X, reshape=True)
+        actual = explainer.getActual(patient_X)
+
+        print("Search completed.")
+
+        filename = args.save + "_shap_vals_entry10_for_" + args.ecg
+        save_shap_vals(shap_vals, filename)
+
+        print("Saved SHAP values to: " + filename + ".npy")
     else:
-        explainer.buildExplainer(args.model, entryCount=10)
-        print("Explainer built!")
+        print("Loading SHAP vals from ", args.shap_vals)
+        filename = args.shap_vals
 
-    print()
-    print("Conducting explainability search...")
-    print()
-
-    shap_vals, expected = explainer.getShapValues(patient_X, reshape=True)
-    actual = explainer.getActual(patient_X)
-
-    print("Search completed.")
-
-    filename = args.save + "_shap_vals_entry10_for_" + args.ecg
-    save_shap_vals(shap_vals, filename)
-
-    print("Saved SHAP values to: " + filename + ".npy")
+   
     print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
     print()
-    print("This patient was diagnosed with: ", actual)
-    print("Expected: ", expected)
+    print("Explanations for patient Afib prediction: ")
+
+    patient_ecg_array = get_patient_ecg_array(args.ecg)
+    #print(patient_ecg_array[:5])
+    shap_vals = np.load(filename + ".npy")
+    shap_vals = shap_vals[0] # IM JUST GONNA ASSUME THAT BOTH THE LEADS ARE JUST REPEATED IN EACH ROW ):
+    shap_vals = shap_vals.reshape((2, 5000))
+
+    waves = decompose(patient_ecg_array)
+
+    #X = get_patient_ecg_array("1di3u25vlxm0o39rexwfbqc41_raw.json")
+    #waves = decompose(X)
+    s = 3
+    sentences = translate(shap_vals, waves, s)
+    while len(sentences) == 0:
+        s -= 1
+        sentences = translate(shap_vals, waves, s)
     
-    print("Plotting...")
-    plotShap(filename)
+    for sent in sentences:
+        print()
+        print(sent)
+
+    '''
+    TRANSLATION VALUES
+    '''
+    #print("This patient was diagnosed with: ", actual)
+    #print("Expected: ", expected)
+
+    print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
+    print()
+    print("Plotting SHAP Values...")
+    plotShap(filename, args.save)
     print("Saved explainability plot to ", args.save + ".png")
+    print("✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧✧")
 
 if __name__ == "__main__":
     main()

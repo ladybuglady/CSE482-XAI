@@ -25,6 +25,8 @@ def ConvPoolBlockNx1(nof,width,i,reluLast=True):
     i = MaxPooling2D(pool_size=(2,1))(i)
     return i
 
+
+
 def BuildModel(segmentLength=512,padTo=512,n_classes=2,reluLast=True):
     # Build a convolutional neural network from predefiend building box (Conv-BN-relu-pool)
 

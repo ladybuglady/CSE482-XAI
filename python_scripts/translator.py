@@ -1,8 +1,8 @@
 import numpy as np
 
-def translate(shap: list, features: dict) -> list:
+def translate(shap: list, features: dict, sense=5) -> list:
 
-    sense = 5
+    sense = sense
     time = 100
     
     sentences_lead_1 = translate_lead(shap[0], features, sense, time, "I")
