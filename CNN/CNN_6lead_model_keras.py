@@ -8,11 +8,11 @@ ICCV, 2015.
 """
 
 
-from tf.keras.callbacks import EarlyStopping
-from tf.keras.layers import Dense, Conv2D,  MaxPool2D, Flatten, GlobalAveragePooling2D,  BatchNormalization, Layer, Add
-from tf.keras.models import Sequential
-from tf.keras.models import Model
-from tf.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Dense, Conv2D,  MaxPool2D, Flatten, GlobalAveragePooling2D,  BatchNormalization, Layer, Add
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 
 
